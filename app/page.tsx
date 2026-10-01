@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { PortalEmbed } from "@/components/portal-embed";
+import { CodeWindow } from "@/components/code-window";
 import { RecipeCard } from "@/components/recipe-card";
 import { ExternalLink } from "@/components/site-shell";
 import { build } from "@/content/build";
@@ -10,7 +10,7 @@ export default function Home() {
     <>
       <section className="hero">
         <div className="container hero-inner">
-          <div className="hero-copy">
+          <div className="hero-copy dev-lead">
             <div className="event-line">
               <span className="event-badge">Tameion</span>
               <span>{site.event.dates}</span>
@@ -18,51 +18,51 @@ export default function Home() {
             <h1>
               {site.home.headlineLines[0]}
               <br />
-              {site.home.headlineLines[1].split(" ").slice(0, -1).join(" ")}{" "}
-              <span className="accent">{site.home.headlineLines[1].split(" ").slice(-1)}</span>
+              {site.home.headlineLines[1]}
             </h1>
             <p className="hero-intro">{site.home.intro}</p>
             <div className="hero-actions">
-              <Link className="button button-primary" href="/quickstart">
+              <Link className="button button-primary" href="#stack">
                 {site.home.startLabel}
               </Link>
-              <Link className="button button-outline" href="#job">
+              <Link className="button button-outline" href="/quickstart">
                 {site.home.buildLabel}
               </Link>
             </div>
           </div>
-
-          <PortalEmbed src={site.links.portal} />
         </div>
       </section>
 
-      <section className="section" id="job" aria-labelledby="job-heading">
+      <section className="section" id="stack" aria-labelledby="stack-heading">
         <div className="container">
           <div className="section-head">
-            <p className="eyebrow">{site.home.jobEyebrow}</p>
-            <h2 id="job-heading">{site.home.jobTitle}</h2>
-            <p>{site.home.jobBody}</p>
+            <p className="eyebrow">What to run</p>
+            <h2 id="stack-heading">Five tools. One place each.</h2>
+            <p>Use the tool that already owns the job. Aomi is the host or the execution path in the middle. It is not a second Arc, and it is not a second Circle wallet.</p>
           </div>
-          <div className="job-path">
-            {site.home.jobSteps.map((step) => (
-              <article key={step.label}>
-                <span className="number">{step.label}</span>
-                <h3>{step.title}</h3>
-                <p>{step.detail}</p>
+          <div className="tool-list">
+            {site.home.stack.map((tool) => (
+              <article className="tool-row" key={tool.n}>
+                <span className="number">{tool.n}</span>
+                <div>
+                  <p className="tool-who">{tool.who}</p>
+                  <h3>{tool.title}</h3>
+                  <p>{tool.body}</p>
+                  <ExternalLink className="text-link" href={tool.href}>{tool.hrefLabel}</ExternalLink>
+                </div>
+                <CodeWindow code={tool.code} title="shell" />
               </article>
             ))}
           </div>
-          <div className="owns-row">
-            {site.home.jobOwns.map((item) => (
-              <article key={item.title}>
-                <h3>{item.title}</h3>
-                <p>{item.detail}</p>
-              </article>
+          <div className="seam-table" role="table">
+            {site.home.seams.map((row) => (
+              <div className="seam-row" role="row" key={row.job}>
+                <strong>{row.job}</strong>
+                <span>{row.use}</span>
+                <p>{row.note}</p>
+              </div>
             ))}
           </div>
-          <ExternalLink className="text-link job-more" href={site.links.transactionPipeline}>
-            Read the transaction pipeline
-          </ExternalLink>
         </div>
       </section>
 
