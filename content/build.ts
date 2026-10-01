@@ -66,13 +66,13 @@ export const build = {
       "Run once without installing with npx @aomi-labs/client --help. Run aomi with no arguments for the interactive REPL, with slash commands like /app, /model and /key.",
     loopTitle: "The transaction loop",
     loopCode: [
-      'aomi chat "swap 1 ETH for USDC" --new-session --public-key 0xYourAddress --chain 1',
-      "aomi tx list  # pending and signed, shows tx-1, tx-2 ...",
-      "aomi tx simulate tx-1 tx-2  # rehearse the batch on a fork",
-      "aomi tx sign tx-1 tx-2  # sign locally and submit",
+      'aomi chat "Send 1 test USDC on Arc Testnet to 0xRecipient" --new-session --public-key 0xYourAddress --chain 5042002',
+      "aomi tx list",
+      "aomi tx simulate action-1",
+      "aomi tx sign action-1 --eoa --private-key <key-you-hold>",
     ].join("\n"),
     loopNote:
-      "EVM and Solana requests have separate ID spaces. If both have a tx-1, the list shows evm:tx-1 and svm:tx-1 and aomi tx sign needs the qualified form.",
+      "The chat has to print an Action before simulate or sign. Use that id. The client docs use action-1. On Arc, 5042002 is testnet and 5042 is mainnet, and the sign command needs --eoa. A local private key is a different signer from a Circle agent wallet. Circle does not take an Aomi export. Its agent wallet sends with circle wallet transfer or circle wallet execute.",
     walletsTitle: "Wallets and keys",
     walletsCode: [
       "aomi wallet set 0xYourPrivateKey  # EVM, saved with file mode 0600 under ~/.aomi",
@@ -81,7 +81,7 @@ export const build = {
       "aomi account login --wallet  # SIWE with the configured EVM key, no browser",
     ].join("\n"),
     walletsNote:
-      "The key never leaves your machine because signing is local. To avoid persisting it, pass --private-key per command or set PRIVATE_KEY in the environment.",
+      "The key never leaves your machine because signing is local. To avoid persisting it, pass --private-key per command or set PRIVATE_KEY in the environment. A key stored here is a different signer from a Circle agent wallet. Circle agent wallets are not local keys, and aomi tx sign cannot use one. Leave the key that arc-canteen login prints in your terminal.",
     moreTitle: "Everything else",
     more: [
       { command: "aomi session list | new | resume <id> | log | status | close", what: "Local sessions. Reuse one to continue a conversation." },

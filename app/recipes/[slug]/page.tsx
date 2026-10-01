@@ -26,6 +26,7 @@ export default async function RecipePage({ params }: { params: Promise<{ slug: s
           <Link className="back-link" href="/recipes">All recipes</Link>
           <p className="eyebrow">{recipe.eyebrow}</p>
           <h1>{recipe.headline}</h1>
+          <p>{recipe.fit}</p>
           <p>{recipe.intro}</p>
           {recipe.slug === "agentic-payment" ? (
             <div className="page-status">End-to-end Portal verification pending</div>

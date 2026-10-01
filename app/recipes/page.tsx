@@ -15,7 +15,7 @@ export default function RecipesPage() {
           <Link className="back-link" href="/">Home</Link>
           <p className="eyebrow">From one action to a project</p>
           <h1>Start with a flow you can check.</h1>
-          <p>Circle and Arc hold the wallet and the asset. You hold the business rule. Aomi holds construction, simulation, and the path to a signer. Start with the payment you can check.</p>
+          <p>Circle and Arc hold the wallet and the asset. You hold the business rule. Aomi holds construction, simulation, and the path to a signer. Each recipe names the stack step it attaches to. Start with the payment you can check.</p>
         </div>
       </div>
       <div className="page-content">
@@ -27,6 +27,7 @@ export default function RecipesPage() {
                 <div>
                   <h2>{recipe.title}</h2>
                   <p>{recipe.teaser}</p>
+                  <p>{recipe.fit}</p>
                   <small>{recipe.label} · {recipe.rfbs}</small>
                 </div>
                 <Link href={`/recipes/${recipe.slug}`}>Open recipe</Link>

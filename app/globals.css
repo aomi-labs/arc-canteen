@@ -267,7 +267,11 @@ html[data-theme="light"] .header-ghost:hover { background: #e2e2e5; }
 .step-row p { margin: 0; }
 .step-row .number { padding-top: 3px; }
 .code-window { margin: 16px 0 0; overflow: hidden; border: 1px solid var(--line); border-radius: 14px; background: #0a0a0a; }
-.code-window-bar { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 14px; color: var(--dim); font-family: var(--font-code); font-size: 12px; }
+.code-window-bar { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 8px 0 14px; color: var(--dim); font-family: var(--font-code); font-size: 12px; }
+.code-copy { margin-left: auto; display: inline-flex; flex: 0 0 28px; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: #a1a1aa; cursor: pointer; }
+.code-copy svg { width: 15px; height: 15px; }
+.code-copy:hover { background: rgba(255, 255, 255, 0.08); color: #fff; }
+.code-copy:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 .code-dots { display: inline-flex; gap: 6px; }
 .code-dots i { width: 8px; height: 8px; border-radius: 50%; background: #2a2a2a; }
 .code-dots i:first-child { background: #ff5f57; }

@@ -110,7 +110,7 @@ export const site = {
         n: "01",
         who: "Canteen",
         title: "Get onto Arc testnet",
-        body: "Install, log in with GitHub, and you have a wallet with $5 test USDC, an RPC on Canteen’s node, and the Arc and Circle docs bundled for your coding agent. This is the bench. It is not the spending policy.",
+        body: "Install, log in with GitHub, and you have a wallet with $5 test USDC, an RPC on Canteen’s node, and the Arc and Circle docs bundled for your coding agent. Login prints a private key in your terminal. Leave it there. This bench wallet is not the Circle agent wallet.",
         code: "uv tool install arc-canteen\narc-canteen login\narc-canteen wallet\narc-canteen rpc-url",
         href: "https://arc-canteen.dev/",
         hrefLabel: "arc-canteen.dev",
@@ -119,8 +119,8 @@ export const site = {
         n: "02",
         who: "Circle Agent Stack",
         title: "Give the agent a wallet",
-        body: "Circle CLI creates the agent wallet, sets spend limits, pays for x402 services, and moves USDC with CCTP and Gateway. On testnet, fund it on ARC-TESTNET. This wallet is not the same key as the Canteen wallet.",
-        code: "npm install -g @circle-fin/cli\ncircle wallet fund --chain ARC-TESTNET",
+        body: "Login with your email and --testnet. Circle sends a one-time code and creates the agent wallet. List that wallet, then fund it. Testnet fund needs --address and draws from the faucet, so omit --method and --amount. The session lasts 7 days. This wallet is not the Canteen key.",
+        code: "npm install -g @circle-fin/cli\ncircle wallet login you@example.com --testnet\ncircle wallet list --type agent --chain ARC-TESTNET\ncircle wallet fund --address 0xYourAgentWallet --chain ARC-TESTNET",
         href: "https://developers.circle.com/agent-stack",
         hrefLabel: "Agent Stack docs",
       },
@@ -128,8 +128,8 @@ export const site = {
         n: "03",
         who: "Arc",
         title: "Settle on the chain",
-        body: "Arc is the L1. Gas is USDC. Chain ID 5042 is mainnet. Chain ID 5042002 is testnet. Agent identity is ERC-8004. A job with escrow is ERC-8183. Aomi does not register the agent and does not run that escrow.",
-        code: "circle wallet list --chain ARC-TESTNET --type agent",
+        body: "This transfer is how a Circle agent wallet settles USDC on Arc. Gas is USDC. Chain ID 5042 is mainnet. Chain ID 5042002 is testnet. The command does not register an agent (ERC-8004) or open an escrow job (ERC-8183). Aomi does not send it. A key you hold signs on the Execution row instead.",
+        code: "circle wallet transfer 0xRecipient --amount 1 --address 0xYourAgentWallet --chain ARC-TESTNET",
         href: "https://docs.arc.network/build/agentic-economy",
         hrefLabel: "Arc agentic economy",
       },
@@ -137,8 +137,8 @@ export const site = {
         n: "04",
         who: "Aomi Host",
         title: "You own the API. You have no agent host.",
-        body: "Wrap your API as tools, add a system prompt, and deploy an App. Aomi hosts the runtime. Users reach it in the Portal, a widget, Telegram, or Discord. You own the App. Any onchain action from it still has to be simulated and signed by a Circle agent wallet or a key the user holds.",
-        code: "cargo install aomi-sdk --locked --features cli,dev-runtime\naomi-build --help",
+        body: "This installs the toolchain and prints help. It does not deploy the App or attach a Circle wallet. Deploy is the next document. You own the App. Users reach it in the Portal, a widget, Telegram, or Discord. Any onchain action from it still goes to a signer: a key you hold, or Circle’s own transfer or execute.",
+        code: "cargo install aomi-sdk --locked --features cli,dev-runtime\naomi-build --help\n# Next: deploy the App. This install does not attach a Circle wallet.",
         href: "https://aomi.dev/docs/build/first-app",
         hrefLabel: "Deploy an App",
       },
@@ -146,8 +146,8 @@ export const site = {
         n: "05",
         who: "Aomi Execution",
         title: "You already have an agent.",
-        body: "Aomi turns one instruction into a transaction: build, simulate, then hand it to a signer. On Arc, sign with a key you hold and --eoa. Account abstraction is not available on Arc. Export formats are eip5792, moss, and metamask. Circle’s CLI does not take that file. circle wallet execute builds its own call from an ABI signature.",
-        code: "aomi tx simulate action-1\naomi tx sign action-1 --eoa --private-key <key-you-hold>\naomi tx export action-1 --format metamask",
+        body: "Chat on chain 5042002, then simulate the Action id that tx list prints. The example id is action-1. Sign that one Action with --eoa and a key you hold. That key is not a Circle agent wallet. Circle sends with its own transfer or execute, and it does not read an Aomi export. Outside wallets use aomi tx export. Formats are eip5792, moss, and metamask. The MetaMask handoff is one call, aomi tx export action-1 --format metamask, then mm wallet send-transaction. That pattern is not how Circle sends on Arc. There is no --format circle. Account abstraction is not available on Arc.",
+        code: "aomi chat \"Send 1 test USDC on Arc Testnet to 0xRecipient\" --public-key 0xYourAddress --chain 5042002\naomi tx list\naomi tx simulate action-1\naomi tx sign action-1 --eoa --private-key <key-you-hold>",
         href: "https://aomi.dev/docs/reference/client-cli/transactions-and-signing",
         hrefLabel: "Transactions and signing",
       },
@@ -234,7 +234,7 @@ export const site = {
     passphrase: "DIRECTx42490",
     deadline: "October 10, 11:59 PM ET",
     network:
-      "Aomi supports Arc mainnet, chain ID 5042, and Arc Testnet, chain ID 5042002. Tameion’s ARC CLI starts on a Canteen-hosted testnet, so this walkthrough uses 5042002. Test USDC counts. Real USDC on mainnet counts more.",
+      "Aomi supports Arc mainnet, chain ID 5042, and Arc Testnet, chain ID 5042002. This walkthrough uses 5042002. Test USDC counts. Real USDC on mainnet counts more.",
     submit:
       "Submit by October 10, 11:59 PM ET. You need a public GitHub repo and a recorded demo under 3 minutes. A live URL is encouraged. You can submit more than once. There is no demo day. Judges review the form, the repo, and the video.",
     traction:
@@ -263,18 +263,18 @@ export const site = {
         secondLabel: "Arc builder Discord",
       },
       {
-        title: "Install the ARC CLI",
-        body: "This is Tameion’s own start. It includes RPC access to a Canteen-hosted Arc testnet, plus Arc repos and docs as agent context.",
-        href: "https://github.com/the-canteen-dev/ARC-cli",
-        hrefLabel: "ARC CLI repo",
-        code: "uv tool install git+https://github.com/the-canteen-dev/ARC-cli",
+        title: "Install arc-canteen",
+        body: "This is the same bench as the home stack. Login prints a private key in your terminal. Leave it there. It is not the Circle agent wallet.",
+        href: "https://arc-canteen.dev/",
+        hrefLabel: "arc-canteen.dev",
+        code: "uv tool install arc-canteen\narc-canteen login\narc-canteen wallet\narc-canteen rpc-url",
       },
       {
         title: "Install the Circle CLI",
-        body: "Circle’s CLI covers agent wallets, x402-compatible payments, and crosschain USDC. It needs Node.js v20.18.2 or newer.",
+        body: "Same agent wallet as the home stack. Node.js v20.18.2 or newer. Login with your email and --testnet, copy the address from list, then fund that address. Omit --method and --amount on testnet.",
         href: "https://developers.circle.com/agent-stack/circle-cli",
         hrefLabel: "Circle CLI docs",
-        code: "npm install -g @circle-fin/cli",
+        code: "npm install -g @circle-fin/cli\ncircle wallet login you@example.com --testnet\ncircle wallet list --type agent --chain ARC-TESTNET\ncircle wallet fund --address 0xYourAgentWallet --chain ARC-TESTNET",
       },
       {
         title: "Read Agents and Ledgers",
@@ -288,9 +288,21 @@ export const site = {
     eyebrow: "One reviewed payment",
     headline: "Make one payment. Inspect every boundary.",
     intro:
-      "This page is only the execution walkthrough: one Arc Testnet transfer you can simulate, refuse, and check. Get the testnet from Canteen and the agent wallet from Circle first. Aomi also supports Arc mainnet, chain ID 5042. Test USDC counts. Real USDC on mainnet counts more. This is not a recorded live run.",
+      "Start with the same bench and the same agent wallet as the home stack, then inspect one Arc Testnet transfer. Canteen gives you the testnet. Circle’s agent wallet is the spending wallet. The Portal steps use a wallet you connect, which is a key you hold. Aomi also supports Arc mainnet, chain ID 5042. Test USDC counts. Real USDC on mainnet counts more. This is not a recorded live run.",
     status: "Not a recorded live run",
     beforeTitle: "Before you begin",
+    setup: [
+      {
+        title: "Canteen bench",
+        body: "Same commands as the home stack. Login prints a private key in your terminal. Leave it there.",
+        code: "uv tool install arc-canteen\narc-canteen login\narc-canteen wallet\narc-canteen rpc-url",
+      },
+      {
+        title: "Circle agent wallet",
+        body: "Login with your email and --testnet, copy the address from list, then fund that address. Omit --method and --amount. This wallet is not the Canteen key, and aomi tx sign cannot use it.",
+        code: "npm install -g @circle-fin/cli\ncircle wallet login you@example.com --testnet\ncircle wallet list --type agent --chain ARC-TESTNET\ncircle wallet fund --address 0xYourAgentWallet --chain ARC-TESTNET",
+      },
+    ],
     importantTitle: "The important distinction",
     distinctions: [
       { term: "Constructed", definition: "the action is prepared." },
@@ -313,7 +325,7 @@ export const site = {
       {
         number: "02",
         title: "Connect a test wallet",
-        body: "Connect a wallet you control. Fund it with test USDC. A read-only question should work before any signing request.",
+        body: "Connect a wallet you control on Arc Testnet. A read-only question should work before any signing request. Do not paste a private key into the Portal. When the Circle agent wallet should send, use circle wallet transfer from the home stack. That wallet cannot be passed to aomi tx sign.",
         kind: "setup",
       },
       {
@@ -371,6 +383,7 @@ export const site = {
       rfbs: "AP/AR · Vendor network · Business operator",
       eyebrow: "Recipe 01 · worked guide",
       headline: "Pay the right party. Then prove it happened.",
+      fit: "Stack step: Aomi Execution, then a signer. These steps use the Portal and a wallet you connect. A Circle agent wallet sends with circle wallet transfer. That transfer is a different payment from Circle’s x402 sample.",
       intro:
         "Start with a user-approved transfer through the Portal. Add your own invoice, vendor or service check before the payment is proposed. The final receipt proves execution, not whether the invoice was legitimate.",
       requirements: [
@@ -414,7 +427,8 @@ export const site = {
       rfbs: "Intelligent Business Treasury",
       eyebrow: "Recipe 02 · integration direction",
       headline: "An FX trade is more than a swap button.",
-        intro:
+      fit: "Stack step: Aomi Host, after a Circle StableFX credential. The Canteen bench wallet does not unlock these tools.",
+      intro:
         "The StableFX App lives on the aomi-sdk publish branch, not main. It is scoped to Arc and calls Circle’s authenticated quote, trade and funding APIs for a USDC and EURC trade. There is no key-free mode. The six tools are stablefx_quote, stablefx_accept_quote, stablefx_create_trade, stablefx_prepare_funding, stablefx_fund_trade and stablefx_trade_status.",
       requirements: [
         "Access to Circle StableFX and the matching test or live API credential.",
@@ -453,6 +467,7 @@ export const site = {
       rfbs: "Compliance",
       eyebrow: "Recipe 03 · build direction",
       headline: "Let the agent propose. Make the rule decide.",
+      fit: "Stack step: your rule, then Aomi Execution. The signer is still a key you hold with --eoa, or Circle’s own transfer or execute.",
       intro:
         "Aomi can construct and simulate the action; your application owns the business rule. Start with one address or amount check that has an unambiguous allowed and refused outcome. Teams sometimes call this gate a Fuzzer. That name is a project direction, not a shipped Aomi product.",
       requirements: [

@@ -27,6 +27,18 @@ export default function QuickstartPage() {
           <div>
             <div className="prereq-panel">
               <h2>{site.quickstart.beforeTitle}</h2>
+              <div className="step-list">
+                {site.quickstart.setup.map((step, index) => (
+                  <section className="step-row" key={step.title}>
+                    <span className="number">0{index + 1}</span>
+                    <div>
+                      <h3>{step.title}</h3>
+                      <p>{step.body}</p>
+                      <CodeWindow code={step.code} title="shell" />
+                    </div>
+                  </section>
+                ))}
+              </div>
               <ul>{site.quickstart.prerequisites.map((item) => <li key={item}>{item}</li>)}</ul>
               <div className="resource-links link-row">
                 <ExternalLink href={site.links.circleFaucet}>Circle faucet</ExternalLink>
