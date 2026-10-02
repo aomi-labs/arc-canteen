@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CodeWindow } from "@/components/code-window";
-import { PromptBuilder } from "@/components/prompt-builder";
 import { ExternalLink } from "@/components/site-shell";
 import { site } from "@/content/site";
 
@@ -41,7 +40,7 @@ export default function QuickstartPage() {
               </div>
               <ul>{site.quickstart.prerequisites.map((item) => <li key={item}>{item}</li>)}</ul>
               <div className="resource-links link-row">
-                <ExternalLink href={site.links.circleFaucet}>Circle faucet</ExternalLink>
+                <ExternalLink href={site.links.arcCanteen}>Canteen bento</ExternalLink>
                 <ExternalLink href={site.links.arcExplorer}>Arc Testnet explorer</ExternalLink>
               </div>
             </div>
@@ -53,12 +52,6 @@ export default function QuickstartPage() {
                     <h3>{step.title}</h3>
                     <p>{step.body}</p>
                     {"code" in step && step.code ? <CodeWindow code={step.code} /> : null}
-                    {step.kind === "prompt-builder" ? <PromptBuilder /> : null}
-                    {step.number === "01" ? (
-                      <ExternalLink className="text-link" href={site.links.portal}>
-                        Open the Aomi Portal
-                      </ExternalLink>
-                    ) : null}
                     {step.number === "08" ? (
                       <ExternalLink className="text-link" href={site.links.arcExplorer}>
                         Open ArcScan
@@ -72,31 +65,18 @@ export default function QuickstartPage() {
               <h3>{site.quickstart.caveatTitle}</h3>
               <p>{site.quickstart.caveatBody}</p>
             </div>
-            <div className="prereq-panel">
-              <h2>Bring the receipt to Tameion</h2>
+            <div className="resource-panel">
+              <h3>Bring the receipt to Tameion</h3>
               <p>{site.tameion.network}</p>
-              <div className="step-list">
-                {site.tameion.start.map((step, index) => (
-                  <section className="step-row" key={step.title}>
-                    <span className="number">0{index + 1}</span>
-                    <div>
-                      <h3>{step.title}</h3>
-                      <p>{step.body}</p>
-                      {"code" in step && step.code ? <CodeWindow code={step.code} title="shell" /> : null}
-                      <div className="resource-links link-row">
-                        <ExternalLink href={step.href}>{step.hrefLabel}</ExternalLink>
-                        {"secondHref" in step && step.secondHref ? (
-                          <ExternalLink href={step.secondHref}>{step.secondLabel}</ExternalLink>
-                        ) : null}
-                      </div>
-                    </div>
-                  </section>
-                ))}
+              <div className="resource-links">
+                <ExternalLink href={site.links.tameionRegister}>Register</ExternalLink>
+                <ExternalLink href={site.links.tameionSubmit}>Submit</ExternalLink>
+                <ExternalLink href={site.links.canteenDiscord}>Canteen Discord</ExternalLink>
               </div>
             </div>
             <div className="next-step">
               <div><p className="eyebrow">Take it further</p><h3>{site.quickstart.nextTitle}</h3><p>{site.quickstart.nextBody}</p></div>
-              <Link className="button button-primary" href="/recipes/agentic-payment">Build the payment flow</Link>
+              <Link className="button button-primary" href="/build">Read the tested reference</Link>
             </div>
           </div>
           <aside className="reading-rail">

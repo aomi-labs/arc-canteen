@@ -15,7 +15,7 @@ export default function RecipesPage() {
           <Link className="back-link" href="/">Home</Link>
           <p className="eyebrow">From one action to a project</p>
           <h1>Start with a flow you can check.</h1>
-          <p>Circle and Arc hold the wallet and the asset. You hold the business rule. Aomi holds construction, simulation, and the path to a signer. Each recipe names the stack step it attaches to. Start with the payment you can check.</p>
+          <p>Each recipe names its signer and its missing prerequisites. The Aomi Execution guide uses a builder-held EOA. The Circle lane uses the tested developer-API adapter. They are not presented as one pipeline.</p>
         </div>
       </div>
       <div className="page-content">

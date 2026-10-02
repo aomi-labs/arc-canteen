@@ -68,12 +68,14 @@ export default async function RecipePage({ params }: { params: Promise<{ slug: s
               ) : recipe.slug === "agentic-payment" ? (
                 <>
                   <p className="eyebrow">Start here</p>
-                  <p><Link href="/quickstart">Arc Testnet quickstart</Link></p>
+                  <p><Link href="/quickstart">Aomi EOA quickstart</Link></p>
+                  <p><Link href="/build">Typed payment reference</Link></p>
                   <p><ExternalLink href={site.links.circleX402}>Circle’s separate x402 example</ExternalLink></p>
                 </>
               ) : (
                 <>
                   <p className="eyebrow">Read first</p>
+                  <p><Link href="/build#policy">Tested payment policy</Link></p>
                   <p><ExternalLink href={site.links.permissionModel}>Permission model</ExternalLink></p>
                   <p><ExternalLink href={site.links.transactionSafety}>Transaction safety</ExternalLink></p>
                 </>

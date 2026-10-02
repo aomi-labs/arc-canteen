@@ -2,8 +2,29 @@ import Link from "next/link";
 import { CodeWindow } from "@/components/code-window";
 import { RecipeCard } from "@/components/recipe-card";
 import { ExternalLink } from "@/components/site-shell";
-import { build } from "@/content/build";
 import { site } from "@/content/site";
+
+const CANTEEN_SETUP = [
+  "uv tool install arc-canteen",
+  "arc-canteen login",
+  "arc-canteen wallet",
+  "arc-canteen rpc-url",
+].join("\n");
+
+const HOST_BOUNDARY = [
+  "const decision = evaluatePayment(intent, policy);",
+  'if (decision.status === "rejected") return decision;',
+  "",
+  "return settleOnce(decision.intent, circle, journal);",
+].join("\n");
+
+const EXECUTION_PATH = [
+  'aomi chat "Send 1 test USDC on Arc Testnet to 0xRecipient" \\',
+  "  --public-key 0xYourAddress --chain 5042002",
+  "aomi tx list",
+  "aomi tx simulate action-1",
+  "aomi tx sign action-1 --eoa",
+].join("\n");
 
 export default function Home() {
   return (
@@ -22,10 +43,10 @@ export default function Home() {
             </h1>
             <p className="hero-intro">{site.home.intro}</p>
             <div className="hero-actions">
-              <Link className="button button-primary" href="#stack">
+              <Link className="button button-primary" href="#paths">
                 {site.home.startLabel}
               </Link>
-              <Link className="button button-outline" href="/quickstart">
+              <Link className="button button-outline" href="/build">
                 {site.home.buildLabel}
               </Link>
             </div>
@@ -33,107 +54,123 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="section" id="stack" aria-labelledby="stack-heading">
+      <section className="section" aria-labelledby="bench-heading">
+        <div className="container">
+          <div className="section-head split-heading">
+            <div>
+              <p className="eyebrow">Shared prerequisite</p>
+              <h2 id="bench-heading">Start on the Canteen bench.</h2>
+            </div>
+            <p>
+              This provisions an Arc Testnet wallet, RPC, and local context.
+              The key stays in your terminal. It is not a Circle agent wallet.
+            </p>
+          </div>
+          <CodeWindow code={CANTEEN_SETUP} title="shell" />
+          <div className="resource-links">
+            <ExternalLink href={site.links.arcCanteen}>Canteen bento</ExternalLink>
+            <ExternalLink href={site.links.arcAgentic}>Arc agentic economy</ExternalLink>
+          </div>
+        </div>
+      </section>
+
+      <section className="section problem-section" id="paths" aria-labelledby="paths-heading">
         <div className="container">
           <div className="section-head">
-            <p className="eyebrow">What to run</p>
-            <h2 id="stack-heading">Five tools. One place each.</h2>
-            <p>Use the tool that already owns the job. Aomi is the host or the execution path in the middle. It is not a second Arc, and it is not a second Circle wallet.</p>
+            <p className="eyebrow">Choose one</p>
+            <h2 id="paths-heading">Two paths. Two different signers.</h2>
+            <p>
+              Do not paste both paths as one pipeline. The Host path uses a
+              developer-owned API and Circle adapter. The Execution path uses
+              an Aomi Action and a builder-held EOA.
+            </p>
           </div>
-          <div className="tool-list">
-            {site.home.stack.map((tool) => (
-              <article className="tool-row" key={tool.n}>
-                <span className="number">{tool.n}</span>
-                <div>
-                  <p className="tool-who">{tool.who}</p>
-                  <h3>{tool.title}</h3>
-                  <p>{tool.body}</p>
-                  <ExternalLink className="text-link" href={tool.href}>{tool.hrefLabel}</ExternalLink>
-                </div>
-                <CodeWindow code={tool.code} title="shell" />
-              </article>
-            ))}
-          </div>
-          <div className="seam-table" role="table">
-            {site.home.seams.map((row) => (
-              <div className="seam-row" role="row" key={row.job}>
-                <strong>{row.job}</strong>
-                <span>{row.use}</span>
-                <p>{row.note}</p>
+          <div className="path-grid">
+            <article className="path-card">
+              <div className="path-card-head">
+                <span className="number">01</span>
+                <span className="path-status">Reference boundary</span>
               </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="section problem-section" aria-labelledby="problem-heading">
-        <div className="container">
-          <div className="section-head split-heading">
-            <div>
-              <p className="eyebrow">{site.home.problemEyebrow}</p>
-              <h2 id="problem-heading">{site.home.problemTitle}</h2>
-            </div>
-            <div>
-              <p>{site.home.problemBody}</p>
-              <ExternalLink className="text-link" href={site.links.canteenResearch}>
-                {site.home.problemSource}
-              </ExternalLink>
-            </div>
-          </div>
-          <div className="problem-grid">
-            {site.home.problemPoints.map((point) => (
-              <div className="problem-item" key={point.label}>
-                <span className="number">{point.label}</span>
-                <h3>{point.title}</h3>
-                <p>{point.detail}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="section figures" aria-label="Platform figures">
-        <div className="container">
-          <p className="eyebrow">{site.home.figuresEyebrow}</p>
-          <div className="figure-row">
-            {site.home.figures.map((figure) => (
-              <div key={figure.label}>
-                <strong>{figure.value}</strong>
-                <span>{figure.label}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="section problem-section" aria-labelledby="why-heading">
-        <div className="container">
-          <div className="section-head split-heading">
-            <div>
-              <p className="eyebrow">Why Aomi</p>
-              <h2 id="why-heading">Don’t rebuild the execution layer.</h2>
-            </div>
-            <div>
+              <p className="eyebrow">You own an API · no agent host</p>
+              <h3>Aomi Host → your API → Circle wallet → Arc</h3>
               <p>
-                Aomi is the execution harness for onchain finance: the layer between an agent’s
-                decision and the signature that makes it real.
+                Aomi hosts the conversation and calls a typed tool. Your API
+                owns invoice data, policy, duplicate prevention, and the
+                settlement adapter. Circle CLI sends the approved payment.
               </p>
-              <Link className="text-link" href="/build">Read the full developer reference</Link>
-            </div>
-          </div>
-          <div className="benefit-list">
-            {build.benefits.map((item, index) => (
-              <div className="benefit-row" key={item.title}>
-                <span className="number">0{index + 1}</span>
-                <h3>{item.title}</h3>
-                <p>{item.summary}</p>
+              <CodeWindow code={HOST_BOUNDARY} title="typescript" />
+              <p className="path-note">
+                This repository implements and tests the TypeScript boundary.
+                It does not claim that an Aomi-hosted App can inherit your
+                local Circle CLI session.
+              </p>
+              <Link className="text-link" href="/build#host-path">
+                Inspect the Host boundary
+              </Link>
+            </article>
+
+            <article className="path-card">
+              <div className="path-card-head">
+                <span className="number">02</span>
+                <span className="path-status path-status-live">Supported today</span>
               </div>
-            ))}
+              <p className="eyebrow">Your agent already exists</p>
+              <h3>Your agent → Aomi Execution → your EOA → Arc</h3>
+              <p>
+                Aomi constructs an Action and simulates it. On Arc, a key you
+                hold signs with <code>--eoa</code>. Use the Action id printed
+                by your own session.
+              </p>
+              <CodeWindow code={EXECUTION_PATH} title="shell" />
+              <p className="path-note">
+                Circle agent wallets cannot be passed to <code>aomi tx sign</code>
+                and Circle CLI does not consume an Aomi export.
+              </p>
+              <Link className="text-link" href="/quickstart">
+                Run the EOA quickstart
+              </Link>
+            </article>
           </div>
         </div>
       </section>
 
-      <section className="section ideas-section" id="build" aria-labelledby="ideas-heading">
+      <section className="section" aria-labelledby="reference-heading">
+        <div className="container">
+          <div className="section-head split-heading">
+            <div>
+              <p className="eyebrow">Runnable reference</p>
+              <h2 id="reference-heading">The policy is code, not copy.</h2>
+            </div>
+            <p>
+              The example uses USDC atomic units, a discriminated policy
+              result, an explicit settlement interface, a Circle CLI adapter,
+              a provider idempotency key, and a journal that blocks blind
+              retries until an unresolved result is reconciled.
+            </p>
+          </div>
+          <div className="proof-strip">
+            <div><strong>6</strong><span>passing tests</span></div>
+            <div><strong>6</strong><span>USDC decimals</span></div>
+            <div><strong>1</strong><span>settlement adapter per run</span></div>
+          </div>
+          <div className="next-step">
+            <div>
+              <p className="eyebrow">Source included</p>
+              <h3>Read the types, policy, adapter, and tests.</h3>
+              <p>
+                The reference is displayed from the files that the test runner
+                executes. The documentation and the implementation cannot drift
+                into separate examples.
+              </p>
+            </div>
+            <Link className="button button-primary" href="/build">
+              Open the reference
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      <section className="section ideas-section" id="requests" aria-labelledby="ideas-heading">
         <div className="container">
           <div className="section-head ideas-heading">
             <p className="eyebrow">{site.home.ideasEyebrow}</p>
@@ -203,27 +240,6 @@ export default function Home() {
               ))}
             </div>
           </div>
-        </div>
-      </section>
-
-      <section className="section ideas-section" aria-labelledby="examples-heading">
-        <div className="container">
-          <div className="section-head split-heading">
-            <div>
-              <p className="eyebrow">Examples</p>
-              <h2 id="examples-heading">{build.examples.title}</h2>
-            </div>
-            <p>{build.examples.intro}</p>
-          </div>
-          <div className="example-list">
-            {build.examples.cases.map((item) => (
-              <article className="example-row" key={item.name}>
-                <h3>{item.name}</h3>
-                <p>{item.body}</p>
-              </article>
-            ))}
-          </div>
-          <p className="rfb-source">{build.examples.stats}</p>
         </div>
       </section>
     </>
