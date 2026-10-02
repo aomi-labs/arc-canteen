@@ -9,7 +9,7 @@ import { site } from "@/content/site";
 export const metadata: Metadata = {
   title: "Arc payment reference",
   description:
-    "A typed payment policy, Circle CLI settlement adapter, retry journal, and tests for one Arc payment.",
+    "Policy, Circle CLI calls, a retry journal, and tests for one Arc payment.",
 };
 
 const AOMI_EOA_PATH = [
@@ -47,13 +47,12 @@ export default async function BuildPage() {
         <div className="container">
           <Link className="back-link" href="/">Home</Link>
           <p className="eyebrow">Reference implementation</p>
-          <h1>One contract. Two honest settlement lanes.</h1>
+          <h1>One payment. Two ways to send it.</h1>
           <p>
-            This page is rendered from the TypeScript files that the test runner
-            executes. It proves the application boundary around one payment. It
-            does not claim that Circle can sign an Aomi Action.
+            This page is the TypeScript the tests run. It checks an invoice, a
+            payee, and a timeout.
           </p>
-          <div className="page-status">6 policy and adapter tests passing locally</div>
+          <div className="page-status">6 policy tests passing locally</div>
         </div>
       </div>
 
@@ -61,27 +60,27 @@ export default async function BuildPage() {
         <div className="container">
           <section className="recipe-detail" style={{ marginTop: 0 }}>
             <p className="eyebrow">The decision</p>
-            <h2>Pick the signer before you write the integration.</h2>
+            <h2>Pick the signer first.</h2>
             <div className="ref-table" role="table">
               <div className="ref-row" role="row">
                 <strong className="ref-left" role="cell">Aomi Execution</strong>
                 <span className="ref-right" role="cell">
-                  Supported today with a builder-held EOA and <code>--eoa</code>.
-                  Aomi constructs and simulates the Action.
+                  Have Aomi prepare the transfer. Sign with <code>--eoa</code> and
+                  the Canteen key.
                 </span>
               </div>
               <div className="ref-row" role="row">
                 <strong className="ref-left" role="cell">Circle agent wallet</strong>
                 <span className="ref-right" role="cell">
-                  Supported through Circle CLI. The developer API owns policy and
-                  calls the CLI adapter after approval.
+                  Keep invoices on your API. Call Circle from that API, not from
+                  the chat.
                 </span>
               </div>
               <div className="ref-row" role="row">
-                <strong className="ref-left" role="cell">Aomi → Circle signer</strong>
+                <strong className="ref-left" role="cell">Do not mix them</strong>
                 <span className="ref-right" role="cell">
-                  Not supported. Circle CLI does not accept an Aomi export, and
-                  <code> aomi tx sign</code> cannot use a Circle agent wallet.
+                  Aomi cannot pass a Circle wallet to <code>aomi tx sign</code>.
+                  Circle CLI does not take an Aomi export.
                 </span>
               </div>
             </div>
@@ -89,11 +88,11 @@ export default async function BuildPage() {
 
           <section className="recipe-detail" id="contract">
             <p className="eyebrow">Shared domain</p>
-            <h2>A PaymentIntent is the boundary.</h2>
+            <h2>The invoice is the unit of work.</h2>
             <p>
-              Amounts use six-decimal USDC atomic units. The policy returns a
-              discriminated union. Only the approved type reaches a settlement
-              adapter.
+              The example tracks ERC-20 USDC on Arc Testnet in 6-decimal units.
+              Arc&apos;s native gas USDC uses 18 decimals. The policy checks
+              chain, wallet, payee, invoice ID, and amount.
             </p>
             <CodeWindow code={domain} title="examples/arc-payment/src/domain.ts" />
           </section>
@@ -109,31 +108,28 @@ export default async function BuildPage() {
           </section>
 
           <section className="recipe-detail" id="host-path">
-            <p className="eyebrow">Host path · Circle settlement</p>
-            <h2>Keep Circle behind the developer API.</h2>
+            <p className="eyebrow">Host path · Circle from your API</p>
+            <h2>Call Circle from your API.</h2>
             <p>
-              An Aomi-hosted tool calls the API you own. The API evaluates the
-              intent and invokes this adapter. Arguments are passed as an array,
-              never interpolated into a shell string. The payment UUID is also
-              Circle&apos;s idempotency key. The wallet session remains outside
-              the Aomi App.
+              If you have an API, keep invoices and policy there. Call Circle
+              from that API, not from the chat. Arguments go in as an array.
+              The payment UUID is the idempotency key.
             </p>
             <CodeWindow code={CIRCLE_SETUP} title="shell" />
             <CodeWindow code={circle} title="examples/arc-payment/src/circle-cli.ts" />
             <div className="note-panel">
-              <h3>Authentication boundary</h3>
+              <h3>Keep the Circle session on your API</h3>
               <p>
-                Circle Agent Stack currently documents this wallet through its
-                CLI. Its email-OTP session lasts seven days. This reference does
-                not put that session or its secure-keychain material inside an
-                Aomi-hosted App.
+                Circle documents this wallet through its CLI. The email-OTP
+                session lasts seven days. That session stays on your API, not
+                inside an Aomi App. That is how this repo is built.
               </p>
             </div>
           </section>
 
           <section className="recipe-detail" id="execution-path">
             <p className="eyebrow">Existing-agent path · Aomi Execution</p>
-            <h2>Simulate the Action, then use one EOA signer.</h2>
+            <h2>Simulate the Action, then sign once.</h2>
             <p>
               The chat must queue an Action before the later commands work. Use
               the id printed by your session; <code>action-1</code> is only the
@@ -141,11 +137,11 @@ export default async function BuildPage() {
             </p>
             <CodeWindow code={AOMI_EOA_PATH} title="shell" />
             <div className="note-panel">
-              <h3>Why Circle is not shown here</h3>
+              <h3>Circle CLI takes a transfer, not an Aomi export</h3>
               <p>
-                A MetaMask export demonstrates an external-wallet handoff, but
-                Circle CLI accepts a transfer or typed ABI call rather than that
-                export. There is no <code>--format circle</code>.
+                A MetaMask export can hand off an external wallet. Circle CLI
+                wants a transfer or a typed ABI call. There is no{" "}
+                <code>--format circle</code>.
               </p>
             </div>
           </section>
@@ -154,22 +150,21 @@ export default async function BuildPage() {
             <p className="eyebrow">Idempotency</p>
             <h2>A timeout is not permission to pay twice.</h2>
             <p>
-              The journal claims an intent before settlement and records the
-              confirmed receipt. Errors and non-confirmed results stay
-              unresolved, so the same payment cannot simply be sent again.
-              Production implementations should back this interface with a
-              durable database, not the filesystem.
+              The journal records the payment before the send. If the result is
+              unclear, look up that payment. Don&apos;t send it again.
+              Production code should store this in a database, not on the
+              filesystem.
             </p>
             <CodeWindow code={workflow} title="examples/arc-payment/src/workflow.ts" />
           </section>
 
           <section className="recipe-detail" id="tests">
-            <p className="eyebrow">Executable evidence</p>
+            <p className="eyebrow">Tests</p>
             <h2>Every important refusal has a test.</h2>
             <p>
-              The suite covers the valid payment, an unapproved recipient, a
-              duplicate-invoice policy, exact Circle CLI arguments, a claimed
-              payment or invoice retry, and an unresolved transport error.
+              The suite covers a valid payment, a bad payee, a duplicate
+              invoice, the Circle CLI arguments, a retry of a claimed payment,
+              and a send that times out.
             </p>
             <CodeWindow code="pnpm test" title="shell" />
             <CodeWindow code={tests} title="examples/arc-payment/test/payment.test.ts" />

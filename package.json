@@ -7,8 +7,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "typecheck": "tsc --noEmit",
-    "test": "tsx --test examples/arc-payment/test/*.test.ts"
+    "typecheck": "tsc --noEmit && tsc --noEmit -p scripts/tsconfig.json && pnpm --filter @arc-canteen/payment-core typecheck && pnpm --filter @arc-canteen/payment-api typecheck",
+    "test": "tsx --test examples/arc-payment/test/*.test.ts scripts/*.test.ts && pnpm --filter @arc-canteen/payment-core test && pnpm --filter @arc-canteen/payment-api test",
+    "live-execution": "tsx scripts/live-execution.ts"
   },
   "dependencies": {
     "next": "16.1.0",

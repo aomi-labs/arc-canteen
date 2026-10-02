@@ -4,7 +4,7 @@ import { site } from "@/content/site";
 
 export const metadata: Metadata = {
   title: "Recipes",
-  description: "One Arc payment walkthrough and two scoped integration directions for Tameion builders.",
+  description: "Queue one small test payment. Simulate it. Sign once. Open the receipt on ArcScan.",
 };
 
 export default function RecipesPage() {
@@ -15,7 +15,7 @@ export default function RecipesPage() {
           <Link className="back-link" href="/">Home</Link>
           <p className="eyebrow">From one action to a project</p>
           <h1>Start with a flow you can check.</h1>
-          <p>Each recipe names its signer and its missing prerequisites. The Aomi Execution guide uses a builder-held EOA. The Circle lane uses the tested developer-API adapter. They are not presented as one pipeline.</p>
+          <p>One walkthrough signs with the Canteen key. StableFX needs a Circle credential. Skip it unless you have one.</p>
         </div>
       </div>
       <div className="page-content">
@@ -35,8 +35,8 @@ export default function RecipesPage() {
             ))}
           </div>
           <div className="note-panel">
-            <h3>Before you pick a recipe</h3>
-            <p>A successful simulation cannot prove the payee is real, a service was delivered or an FX quote is available. Build those checks into your application, then test the execution boundary.</p>
+            <h3>A passing simulation is not a real invoice</h3>
+            <p>A passing simulation means the transaction would run. It does not mean the invoice is real. Check the payee and the invoice in your code.</p>
           </div>
         </div>
       </div>

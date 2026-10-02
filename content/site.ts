@@ -3,7 +3,7 @@ export const site = {
   name: "Build with Aomi at Tameion",
   domain: "arc-canteen.aomi.dev",
   description:
-    "Two honest Arc payment lanes: Aomi Execution with a builder-held EOA, or an Aomi-hosted tool calling a developer API with a tested Circle settlement adapter.",
+    "Log in on the Canteen bench. You get an Arc Testnet wallet, test USDC, and an RPC. Then queue a payment, simulate it, and sign once.",
   links: {
     aomi: "https://aomi.dev/",
     portal: "https://chat.aomi.dev/",
@@ -56,27 +56,27 @@ export const site = {
   home: {
     headlineLines: ["Choose your starting point.", "Ship one Arc payment."],
     intro:
-      "There are two supported lanes, not one five-command pipeline. Use Aomi Host to put an agent in front of an API you own. Use Aomi Execution when your agent already exists. Circle’s agent wallet and a builder-held EOA are different signers. This guide does not pretend they are interchangeable.",
+      "Log in on the Canteen bench. You get an Arc Testnet wallet, test USDC, and an RPC. The key stays in your terminal. Then pick how you want to pay. Circle’s agent wallet and the Canteen key are different wallets. Don’t mix them in one script.",
     startLabel: "Choose a path",
     buildLabel: "Read the reference",
     ideasEyebrow: "Five requests for builders",
-    ideasTitle: "Pick one money problem. Finish the flow.",
+    ideasTitle: "Pick one money problem a real business has.",
     ideasBody:
       "Tameion’s five requests are prompts, not tracks. A project has to run on Arc, with USDC actually moving, for a business that is using it. Your own company counts. A synthetic dataset does not.",
     recipeEyebrow: "Recipes",
-    recipeTitle: "A first action, then a real application.",
+    recipeTitle: "A first payment, then a real application.",
     recipeBody:
-      "One Aomi Execution walkthrough with a builder-held EOA. Two more directions for teams with their own product or integration access.",
-    closeTitle: "Start small enough to verify.",
+      "Queue one small test payment. Simulate it. Sign once. Open the receipt on ArcScan. Then refuse a bad payee or a duplicate invoice in code.",
+    closeTitle: "Show a judge something they can click.",
     closeBody:
-      "One reviewed action, one deliberate refusal, and one confirmed result tell a stronger story than a dashboard full of untested promises.",
+      "One paid invoice, one refusal, and a link on ArcScan.",
   },
   rfbs: [
     {
       number: "01",
       name: "Intelligent Business Treasury",
       question: "How does a business keep cash available while deciding what to allocate or reserve?",
-      aomi: "You decide which cash to reserve. Aomi constructs and simulates that one movement. Start from circlefin/arc-fintech, including USYC. A USDC and EURC trade is the StableFX path, and it needs a Circle credential.",
+      aomi: "You decide which cash to reserve. Aomi constructs and simulates that one movement. Start from circlefin/arc-fintech, including USYC. A USDC and EURC trade is the StableFX path. StableFX needs a Circle credential. Skip it unless you have one.",
       primitive: "Treasury · USYC · reserve move",
       firstBuild: "Forecast one cash need, then move one idle balance only when that rule says so.",
       sampleLabel: "circlefin/arc-fintech",
@@ -110,7 +110,7 @@ export const site = {
       number: "04",
       name: "Autonomous Business Operator",
       question: "Which obligations can an agent pay without losing sight of the company’s cash?",
-      aomi: "You set the budget rule. Start from circlefin/arc-x402-circle-wallets when the agent pays an x402 service from its own Circle wallet. A transfer you review in the Aomi Portal is a different payment. Aomi runs the bounded execution after your rule.",
+      aomi: "You set the budget rule. Start from circlefin/arc-x402-circle-wallets when the agent pays an x402 service from its own Circle wallet. A transfer you review in the Aomi Portal is a different payment. After your rule, Aomi prepares the transfer and you sign it.",
       primitive: "Budget · x402 or reviewed payment",
       firstBuild: "Run one workflow from money in, to one allowed payment, to a log.",
       sampleLabel: "circlefin/arc-x402-circle-wallets",
@@ -122,7 +122,7 @@ export const site = {
       number: "05",
       name: "Compliance Intelligence Agent",
       question: "How can changing counterparty risk affect a payment before it is sent?",
-      aomi: "You write the screening rule that allows, refuses, or escalates. Aomi prepares the action and stops it when that rule refuses. Simulation is not a compliance decision.",
+      aomi: "You write the screening rule that allows, refuses, or escalates. Aomi prepares the action and stops it when that rule refuses. A passing simulation means the transaction would run. It does not mean the counterparty is clear.",
       primitive: "Policy input · guarded action · evidence",
       firstBuild: "Block one previously approved recipient after its risk status changes.",
       recipeLabel: "Guarded execution",
@@ -146,16 +146,16 @@ export const site = {
     ],
   },
   quickstart: {
-    eyebrow: "Aomi Execution · EOA lane",
+    eyebrow: "Aomi Execution · your key",
     headline: "Queue one Action. Simulate it. Sign once.",
     intro:
-      "This is the supported Aomi Execution lane on Arc Testnet: Canteen provisions a local EOA and RPC, Aomi queues and simulates an Action, and the key you hold signs with --eoa. Circle’s agent wallet is a different lane and is not used here. This is not a recorded live run.",
-    status: "EOA lane · not a recorded live run",
+      "Log in on the Canteen bench. Queue one small test payment. Simulate it. Sign once. Open the receipt on ArcScan.",
+    status: "EOA walkthrough · not a recorded live run",
     beforeTitle: "Install the two local tools",
     setup: [
       {
         title: "Canteen bench",
-        body: "Login provisions the Arc Testnet wallet and RPC. The private key is printed only in your terminal. Do not paste it into this site or the Portal.",
+        body: "Login gives you an Arc Testnet wallet, test USDC, and an RPC. The key stays in your terminal. Do not paste it into this site or the Portal.",
         code: "uv tool install arc-canteen\narc-canteen login\narc-canteen wallet\narc-canteen rpc-url",
       },
       {
@@ -173,14 +173,14 @@ export const site = {
     ],
     prerequisites: [
       "The public address and private key from your Canteen wallet. Keep the key local. The backend alias arc is mainnet (5042); this guide uses testnet chain ID 5042002.",
-      "Test USDC for the transfer and for gas. Type the amount in USDC, which is 6 decimal places. Arc’s native balance uses 18-decimal atomic units.",
+      "Test USDC for the transfer and for gas. Arc’s native gas USDC uses 18 decimals. ERC-20 USDC on Arc Testnet uses 6 decimals. Type the transfer amount in USDC, not in atomic units.",
       "A second test address, or your own address for a small self-transfer.",
     ],
     steps: [
       {
         number: "01",
         title: "Choose the signer",
-        body: "This lane uses the Canteen EOA. Set its private key in your local environment without committing it or pasting it into a website. Do not use a Circle agent-wallet address here.",
+        body: "This walkthrough uses the Canteen key. Set its private key in your local environment without committing it or pasting it into a website.",
         kind: "setup",
       },
       {
@@ -207,19 +207,19 @@ export const site = {
       {
         number: "05",
         title: "Inspect the simulation",
-        body: "Compare chain, sender, recipient, amount, gas and warnings against your application record. A passing simulation does not prove that the invoice or payee is legitimate.",
+        body: "Compare chain, sender, recipient, amount, gas and warnings against your invoice. A passing simulation means the transaction would run. It does not mean the invoice is real.",
         kind: "review",
       },
       {
         number: "06",
-        title: "Exercise the boundary",
-        body: "Refuse the first attempt by not signing it. Change the recipient, queue a new Action, and show that your application policy rejects it before signing.",
+        title: "Refuse a bad payee",
+        body: "Do not sign the first attempt. Change the recipient, queue a new Action, and show that your code rejects it before signing.",
         kind: "decision",
       },
       {
         number: "07",
         title: "Sign the approved Action",
-        body: "Set PRIVATE_KEY in your terminal, sign the approved id with --eoa, then remove the variable. Account abstraction is not available on Arc.",
+        body: "Set PRIVATE_KEY in your terminal, sign the approved id with --eoa, then remove the variable. Aomi cannot do account abstraction on Arc.",
         kind: "command",
         code: "aomi tx sign action-1 --eoa\nunset PRIVATE_KEY",
       },
@@ -230,12 +230,12 @@ export const site = {
         kind: "receipt",
       },
     ],
-    caveatTitle: "What this demonstrates, and what it doesn’t",
+    caveatTitle: "What you just ran",
     caveatBody:
-      "This walkthrough exercises Aomi Execution with a builder-held EOA. It does not exercise a Circle agent wallet. Your own invoice matching, vendor verification, spending policy and retry journal must still run before signing.",
-    nextTitle: "Now inspect the tested policy boundary.",
+      "You signed with the Canteen key. Invoice matching, vendor checks, and retry logic still live in your code. If a send times out, look up the payment. Don’t send it again.",
+    nextTitle: "Refuse a bad payee in code.",
     nextBody:
-      "The reference implementation shows an approved recipient, duplicate-invoice rejection, Circle adapter arguments, and retry protection.",
+      "The reference shows an approved recipient, a duplicate-invoice refusal, Circle called from an API, and a timeout that does not pay twice.",
   },
   recipes: [
     {
@@ -247,11 +247,11 @@ export const site = {
       rfbs: "AP/AR · Vendor network · Business operator",
       eyebrow: "Recipe 01 · worked guide",
       headline: "Pay the right party. Then prove it happened.",
-      fit: "Supported lane: Aomi Execution, then a builder-held EOA with --eoa. This recipe does not use a Circle agent wallet.",
+      fit: "Have Aomi prepare the transfer. Sign it yourself with the Canteen key.",
       intro:
-        "Start with a user-approved Aomi Action signed by the builder-held EOA. Add your own invoice, vendor or service check before the payment is proposed. The final receipt proves execution, not whether the invoice was legitimate.",
+        "Start with a small test payment. Check the invoice and payee in your own code first. The ArcScan receipt proves the transfer ran. It does not prove the invoice was real.",
       requirements: [
-        "An Arc Testnet wallet with test USDC and enough USDC for gas.",
+        "An Arc Testnet wallet with test USDC and enough native USDC for gas.",
         "A recipient address verified against a source outside the agent prompt.",
         "A document or service request with a stable identifier you control.",
       ],
@@ -270,17 +270,17 @@ export const site = {
         },
         {
           title: "Review and authorize",
-          body: "Compare the exact recipient and value to your payment record. Exercise one rejected request, then approve a fresh valid request in the configured manual wallet flow.",
+          body: "Compare the exact recipient and value to your payment record. Refuse one bad request, then approve a fresh valid request and sign it yourself.",
         },
         {
           title: "Record the outcome",
-          body: "Only mark the invoice or service request paid after a confirmed result. Keep its ID, transaction hash and explorer URL together. A timed-out response calls for reconciliation, not a blind second payment.",
+          body: "Only mark the invoice or service request paid after a confirmed result. Keep its ID, transaction hash and ArcScan URL together. If a send times out, look up the payment. Don’t send it again.",
         },
       ],
       verification:
-        "Show one allowed payment and one refused payment. Confirm the allowed transaction independently in ArcScan, then demonstrate that the same invoice ID will not be submitted twice by your application.",
+        "Show one paid invoice, one refusal, and a link a judge can click on ArcScan. Then show that the same invoice ID will not be paid twice.",
       boundary:
-        "This worked guide covers a manually reviewed Aomi Action signed by a builder-held EOA. An automated HTTP 402 purchase needs a separate x402 payer integration and authorization model. Circle publishes an Arc x402 sample; this page does not claim that the EOA transfer is that integration.",
+        "This is a reviewed transfer signed with your key. An automated HTTP 402 purchase is a different integration. Circle publishes an Arc x402 sample for that path.",
     },
     {
       slug: "stablefx",
@@ -291,7 +291,7 @@ export const site = {
       rfbs: "Intelligent Business Treasury",
       eyebrow: "Recipe 02 · integration direction",
       headline: "An FX trade is more than a swap button.",
-      fit: "Integration direction: an Aomi App with a Circle StableFX credential. The Canteen bench wallet does not unlock these tools.",
+      fit: "StableFX needs a Circle credential. Skip it unless you have one.",
       intro:
         "The StableFX App lives on the aomi-sdk publish branch, not main. It is scoped to Arc and calls Circle’s authenticated quote, trade and funding APIs for a USDC and EURC trade. There is no key-free mode. The six tools are stablefx_quote, stablefx_accept_quote, stablefx_create_trade, stablefx_prepare_funding, stablefx_fund_trade and stablefx_trade_status.",
       requirements: [
@@ -302,7 +302,7 @@ export const site = {
       steps: [
         {
           title: "Check availability",
-          body: "Confirm StableFX App access on your Aomi environment and your Circle account. Do not substitute App visibility for Circle RFQ eligibility.",
+          body: "Confirm StableFX App access on your Aomi environment and your Circle account. App visibility is not the same as Circle RFQ eligibility.",
         },
         {
           title: "Quote and accept",
@@ -320,7 +320,7 @@ export const site = {
       verification:
         "Use a Circle-authorized test environment to capture a full quote-to-settlement lifecycle. Do not show an illustrative UI as a completed institutional FX trade.",
       boundary:
-        "A credential is required at tool-call time. The public stewardfx site describes an illustrative flow with access pending; it is not proof of a completed StableFX transaction.",
+        "A credential is required at tool-call time. The public stewardfx site describes an illustrative flow with access pending. That is not a completed StableFX transaction.",
     },
     {
       slug: "safe-execution",
@@ -331,9 +331,9 @@ export const site = {
       rfbs: "Compliance",
       eyebrow: "Recipe 03 · build direction",
       headline: "Let the agent propose. Make the rule decide.",
-      fit: "Shared boundary: your application rule approves a typed PaymentIntent before either the Aomi EOA lane or Circle adapter can settle it.",
+      fit: "Refuse a bad payee or a duplicate invoice in code, before anyone signs.",
       intro:
-        "Aomi can construct and simulate the action; your application owns the business rule. Start with one address or amount check that has an unambiguous allowed and refused outcome. Teams sometimes call this gate a Fuzzer. That name is a project direction, not a shipped Aomi product.",
+        "Aomi can prepare and simulate the transfer. Your code decides whether it is allowed. Start with one address or amount check that has a clear yes and a clear no.",
       requirements: [
         "A written rule with a known data source, such as an approved payee list.",
         "A dedicated test wallet and one small Arc Testnet action.",
@@ -358,14 +358,14 @@ export const site = {
         },
       ],
       verification:
-        "A reviewer can reproduce both outcomes and inspect the rule. If no custom policy has been implemented, show the native simulation and manual-signing boundary without claiming vendor allowlisting is built in.",
+        "A reviewer can reproduce both outcomes and inspect the rule. If you have not written a custom policy yet, show the simulation and the manual sign step.",
       boundary:
-        "Simulation can show whether a payload executes against a pinned state. It cannot independently establish whether a vendor is real, an invoice is legitimate or a route is economically optimal.",
+        "A passing simulation means the transaction would run. It does not mean the invoice is real, the vendor is approved, or the price is good.",
     },
   ],
   footer: {
-    title: "Have one action in mind?",
-    body: "Bring the project, the target chain and the transaction you want to test. Start with a small proof and make the checks visible.",
+    title: "Have one payment in mind?",
+    body: "Bring the wallet, the invoice, and the chain. Start with a small test USDC send you can open on ArcScan.",
     attribution: "An Aomi resource for builders at Tameion. Tameion is hosted by Canteen.",
     columns: [
       {

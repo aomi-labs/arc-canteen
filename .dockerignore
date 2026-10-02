@@ -1,0 +1,14 @@
+node_modules
+.next
+.git
+app
+apps
+components
+content
+public
+examples
+evidence
+.research-circle-cli
+.cursor
+*.md
+!services/payment-api/.env.example

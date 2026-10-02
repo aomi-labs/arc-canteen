@@ -82,7 +82,7 @@ export default function QuickstartPage() {
           <aside className="reading-rail">
             <p className="eyebrow">{site.quickstart.importantTitle}</p>
             {site.quickstart.distinctions.map((item) => <p key={item.term}><strong>{item.term}</strong> means {item.definition}</p>)}
-            <ExternalLink href={site.links.transactionPipeline}>Read the full pipeline</ExternalLink>
+            <ExternalLink href={site.links.transactionPipeline}>Read the transaction docs</ExternalLink>
           </aside>
         </div>
       </div>

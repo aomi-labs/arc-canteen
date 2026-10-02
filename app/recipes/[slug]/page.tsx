@@ -29,9 +29,11 @@ export default async function RecipePage({ params }: { params: Promise<{ slug: s
           <p>{recipe.fit}</p>
           <p>{recipe.intro}</p>
           {recipe.slug === "agentic-payment" ? (
-            <div className="page-status">End-to-end Portal verification pending</div>
+            <div className="page-status">EOA walkthrough · not a recorded live run</div>
+          ) : recipe.slug === "stablefx" ? (
+            <div className="page-status">Needs a Circle credential</div>
           ) : (
-            <div className="page-status">Not a verified live run. Access or your own code is required.</div>
+            <div className="page-status">Write the rule in your code</div>
           )}
         </div>
       </div>
@@ -54,7 +56,7 @@ export default async function RecipePage({ params }: { params: Promise<{ slug: s
                 ))}
               </div>
               <div className="note-panel"><h3>What to show a reviewer</h3><p>{recipe.verification}</p></div>
-              <div className="note-panel"><h3>Keep this boundary clear</h3><p>{recipe.boundary}</p></div>
+              <div className="note-panel"><h3>What this covers</h3><p>{recipe.boundary}</p></div>
             </div>
             <aside className="reading-rail">
               <p className="eyebrow">Related RFBs</p>
@@ -69,7 +71,7 @@ export default async function RecipePage({ params }: { params: Promise<{ slug: s
                 <>
                   <p className="eyebrow">Start here</p>
                   <p><Link href="/quickstart">Aomi EOA quickstart</Link></p>
-                  <p><Link href="/build">Typed payment reference</Link></p>
+                  <p><Link href="/build">Payment reference</Link></p>
                   <p><ExternalLink href={site.links.circleX402}>Circle’s separate x402 example</ExternalLink></p>
                 </>
               ) : (
@@ -84,7 +86,7 @@ export default async function RecipePage({ params }: { params: Promise<{ slug: s
           </div>
           <div className="resource-panel">
             <h3>Where to go next</h3>
-            <p>Keep the first action small. If you need custom tools, start from the Aomi App guide rather than inventing an API call.</p>
+            <p>Keep the first payment small. If you need custom tools, start from the Aomi App guide.</p>
             <div className="resource-links">
               <ExternalLink href={site.links.appQuickstart}>Build an Aomi App</ExternalLink>
               <ExternalLink href={site.links.discord}>Ask Aomi builders</ExternalLink>

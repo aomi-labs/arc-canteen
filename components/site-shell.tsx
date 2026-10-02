@@ -113,7 +113,7 @@ export function SiteFooter() {
     <footer className="site-footer">
       <div className="container footer-cta">
         <div>
-          <p className="eyebrow">Build something that can be checked</p>
+          <p className="eyebrow">Show a judge a receipt</p>
           <h2>{site.footer.title}</h2>
           <p>{site.footer.body}</p>
         </div>

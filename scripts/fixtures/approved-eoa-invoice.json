@@ -1,0 +1,18 @@
+{
+  "intent": {
+    "id": "9e8f0a12-4b3c-4d5e-a678-90abcdef1234",
+    "invoiceId": "eoa-approved-001",
+    "chain": "ARC-TESTNET",
+    "source": "0x1111111111111111111111111111111111111111",
+    "recipient": "0x2222222222222222222222222222222222222222",
+    "amountUsdcMicros": "10000"
+  },
+  "policy": {
+    "chain": "ARC-TESTNET",
+    "source": "0x1111111111111111111111111111111111111111",
+    "approvedRecipients": ["0x2222222222222222222222222222222222222222"],
+    "paidInvoiceIds": [],
+    "maxAmountUsdcMicros": "1000000"
+  },
+  "unapprovedRecipient": "0x3333333333333333333333333333333333333333"
+}

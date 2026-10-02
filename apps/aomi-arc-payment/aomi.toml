@@ -1,0 +1,5 @@
+[app]
+name = "aomi-arc-payment"
+display_name = "Aomi Arc Payment"
+public = false
+server_tags = ["prod"]

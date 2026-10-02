@@ -62,8 +62,8 @@ export default function Home() {
               <h2 id="bench-heading">Start on the Canteen bench.</h2>
             </div>
             <p>
-              This provisions an Arc Testnet wallet, RPC, and local context.
-              The key stays in your terminal. It is not a Circle agent wallet.
+              Log in. You get an Arc Testnet wallet, test USDC, and an RPC.
+              The key stays in your terminal.
             </p>
           </div>
           <CodeWindow code={CANTEEN_SETUP} title="shell" />
@@ -78,54 +78,47 @@ export default function Home() {
         <div className="container">
           <div className="section-head">
             <p className="eyebrow">Choose one</p>
-            <h2 id="paths-heading">Two paths. Two different signers.</h2>
+            <h2 id="paths-heading">Then pick how you want to pay.</h2>
             <p>
-              Do not paste both paths as one pipeline. The Host path uses a
-              developer-owned API and Circle adapter. The Execution path uses
-              an Aomi Action and a builder-held EOA.
+              If you already have an agent, have Aomi prepare the transfer and
+              sign it yourself. If you have an API, keep invoices and policy
+              there. Call Circle from that API, not from the chat.
             </p>
           </div>
           <div className="path-grid">
             <article className="path-card">
               <div className="path-card-head">
                 <span className="number">01</span>
-                <span className="path-status">Reference boundary</span>
+                <span className="path-status">Your API</span>
               </div>
-              <p className="eyebrow">You own an API · no agent host</p>
-              <h3>Aomi Host → your API → Circle wallet → Arc</h3>
+              <p className="eyebrow">You already have an API</p>
+              <h3>Keep invoices on your API</h3>
               <p>
-                Aomi hosts the conversation and calls a typed tool. Your API
-                owns invoice data, policy, duplicate prevention, and the
-                settlement adapter. Circle CLI sends the approved payment.
+                Your API checks the invoice and the payee. Circle CLI sends
+                the approved payment.
               </p>
               <CodeWindow code={HOST_BOUNDARY} title="typescript" />
               <p className="path-note">
-                This repository implements and tests the TypeScript boundary.
-                It does not claim that an Aomi-hosted App can inherit your
-                local Circle CLI session.
+                Circle stays behind your API. That is how this repo is built.
               </p>
               <Link className="text-link" href="/build#host-path">
-                Inspect the Host boundary
+                Read the API path
               </Link>
             </article>
 
             <article className="path-card">
               <div className="path-card-head">
                 <span className="number">02</span>
-                <span className="path-status path-status-live">Supported today</span>
+                <span className="path-status path-status-live">Your key</span>
               </div>
-              <p className="eyebrow">Your agent already exists</p>
-              <h3>Your agent → Aomi Execution → your EOA → Arc</h3>
+              <p className="eyebrow">You already have an agent</p>
+              <h3>Prepare the transfer. Sign it yourself.</h3>
               <p>
-                Aomi constructs an Action and simulates it. On Arc, a key you
-                hold signs with <code>--eoa</code>. Use the Action id printed
-                by your own session.
+                Aomi queues the Action and simulates it. You sign with{" "}
+                <code>--eoa</code> using the Canteen key. Use the Action id
+                your session prints.
               </p>
               <CodeWindow code={EXECUTION_PATH} title="shell" />
-              <p className="path-note">
-                Circle agent wallets cannot be passed to <code>aomi tx sign</code>
-                and Circle CLI does not consume an Aomi export.
-              </p>
               <Link className="text-link" href="/quickstart">
                 Run the EOA quickstart
               </Link>
@@ -139,28 +132,26 @@ export default function Home() {
           <div className="section-head split-heading">
             <div>
               <p className="eyebrow">Runnable reference</p>
-              <h2 id="reference-heading">The policy is code, not copy.</h2>
+              <h2 id="reference-heading">Refuse a bad payee in code.</h2>
             </div>
             <p>
-              The example uses USDC atomic units, a discriminated policy
-              result, an explicit settlement interface, a Circle CLI adapter,
-              a provider idempotency key, and a journal that blocks blind
-              retries until an unresolved result is reconciled.
+              The example checks the recipient and the invoice ID. If a send
+              times out, look up the payment. Don&apos;t send it again.
             </p>
           </div>
           <div className="proof-strip">
             <div><strong>6</strong><span>passing tests</span></div>
-            <div><strong>6</strong><span>USDC decimals</span></div>
-            <div><strong>1</strong><span>settlement adapter per run</span></div>
+            <div><strong>6</strong><span>ERC-20 USDC decimals</span></div>
+            <div><strong>1</strong><span>timeout ≠ two payments</span></div>
           </div>
           <div className="next-step">
             <div>
               <p className="eyebrow">Source included</p>
-              <h3>Read the types, policy, adapter, and tests.</h3>
+              <h3>Read the policy, the Circle call, and the tests.</h3>
               <p>
-                The reference is displayed from the files that the test runner
-                executes. The documentation and the implementation cannot drift
-                into separate examples.
+                The reference is the same TypeScript the tests run. A passing
+                simulation means the transaction would run. It does not mean
+                the invoice is real.
               </p>
             </div>
             <Link className="button button-primary" href="/build">

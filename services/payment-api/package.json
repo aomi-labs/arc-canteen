@@ -1,0 +1,25 @@
+{
+  "name": "@arc-canteen/payment-api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "test": "tsx --test test/*.test.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "engines": {
+    "node": ">=20.18.2"
+  },
+  "dependencies": {
+    "@arc-canteen/payment-core": "workspace:*",
+    "@circle-fin/cli": "1.1.4",
+    "pg": "^8.16.3",
+    "tsx": "^4.23.15"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.4",
+    "@types/pg": "^8.15.5",
+    "typescript": "5.9.3"
+  }
+}
