@@ -6,5 +6,6 @@ export const links = {
   build: "https://build.aomi.dev",
   tameion: "https://tameion.thecanteenapp.com",
   taskClient: "https://github.com/aomi-labs/arc-canteen/tree/main/packages/task-client",
+  invoiceAgentWidget: "https://github.com/aomi-labs/arc-canteen/blob/main/apps/site/components/invoice-agent-widget.tsx",
   invoiceAgent: "https://github.com/aomi-labs/arc-canteen/tree/main/templates/invoice-agent",
 };
