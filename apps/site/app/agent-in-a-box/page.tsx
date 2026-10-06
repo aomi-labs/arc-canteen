@@ -1,0 +1,13 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { ExternalLink, links } from "@/components/site-shell";
+
+export const metadata: Metadata = { title: "Arc Agent-in-a-Box" };
+
+export default function AgentInABox() {
+  return <>
+    <section className="page-hero"><div className="container"><p className="eyebrow">Item 2 · build the intelligence</p><h1>Arc Agent-<br />in-a-Box</h1><p className="lede">A builder starter for turning your product APIs into an Arc-native finance agent—without recreating Aomi Build.</p><div className="status-banner"><strong>Build locally.</strong> The invoice template, custom API tools, headless dashboard, and Circle execution adapter live in this repository. Hosted use requires deployment through Aomi Build and your own Application ID.</div></div></section>
+    <section className="section"><div className="container content-grid"><div><p className="eyebrow">What builders own</p><h2>Your APIs are the agent’s operating context.</h2></div><div><div className="steps"><div className="step"><strong>Expose app-specific tools</strong>Replace the fixture clients with endpoints such as <code>get_invoice</code>, <code>get_vendor</code>, and <code>check_payment_status</code>.</div><div className="step"><strong>Encode the business rule</strong>The included agent re-fetches state and refuses changed vendor addresses, already-paid invoices, and unapproved invoices.</div><div className="step"><strong>Use Aomi’s build path</strong>Deploy the Aomi App through the existing build platform and receive an Application ID. This repo does not fork the platform.</div><div className="step"><strong>Embed the agent</strong>The dashboard uses the headless Aomi React provider so the assistant fits inside the builder’s product UX.</div><div className="step"><strong>Stage, simulate, commit</strong>The host route prepares the Arc transaction, requires simulation, and binds the resulting transaction hash before marking the invoice paid.</div></div></div></div></section>
+    <section className="section demo-strip"><div className="container demo-grid"><div><p className="eyebrow">Starter included</p><h2>Invoice APIs, agent tools, dashboard, and execution review.</h2></div><div><p>Clone the Tameion template, replace the fixture API client with your product, and hand deployment to the existing Aomi Build lifecycle.</p><ExternalLink className="button light" href={links.invoiceAgent}>Open the starter ↗</ExternalLink> <ExternalLink className="button light" href={links.build}>Deploy with Aomi Build ↗</ExternalLink> <Link className="button light" href="/examples/invoice-dashboard">Integrate the dashboard</Link></div></div></section>
+  </>;
+}

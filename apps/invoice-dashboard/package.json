@@ -1,0 +1,27 @@
+{
+  "name": "@arc-canteen/invoice-dashboard",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --port 3001",
+    "build": "next build",
+    "start": "next start --port 3001",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test app/api/circle/execute/route.test.ts"
+  },
+  "dependencies": {
+    "@arc-canteen/circle-arc-wallet": "workspace:*",
+    "@arc-canteen/invoice-workflow": "workspace:*",
+    "@aomi-labs/react": "0.7.5",
+    "@assistant-ui/react": "0.14.29",
+    "next": "16.1.0",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
+    "viem": "2.38.5",
+    "wagmi": "2.19.5"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3"
+  }
+}

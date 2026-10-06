@@ -1,0 +1,100 @@
+{
+  "schemaVersion": 2,
+  "testedAt": "2026-10-06T10:27:37Z",
+  "sourceCommit": "6140e73377ad000f117a64eda2e34e5062139953",
+  "network": {
+    "name": "Arc Testnet",
+    "chainId": 5042002
+  },
+  "versions": {
+    "taskClient": "0.1.0",
+    "circleArcWallet": "0.1.0",
+    "invoiceAgent": "0.1.0",
+    "aomiSdk": "5.1.1",
+    "aomiReact": "0.7.5",
+    "circleCliObserved": "1.1.4"
+  },
+  "preview": {
+    "url": "https://arc-canteen-829na286f-aomi-labs.vercel.app",
+    "status": "ready-protected",
+    "access": "Vercel authentication required"
+  },
+  "liveIdentifiers": {
+    "aomiApplicationId": null,
+    "circleTransactionId": null,
+    "arcTransactionHash": null,
+    "arcExplorerUrl": null
+  },
+  "screenshots": {
+    "site": [
+      "proof/site/home-desktop.png",
+      "proof/site/home-mobile.png",
+      "proof/site/execution-kit-desktop.png",
+      "proof/site/execution-kit-mobile.png",
+      "proof/site/agent-in-a-box-desktop.png",
+      "proof/site/agent-in-a-box-mobile.png",
+      "proof/site/proof-desktop.png",
+      "proof/site/proof-mobile.png"
+    ],
+    "agentInABox": [
+      "proof/agent-in-a-box/approved-review-desktop.png",
+      "proof/agent-in-a-box/approved-review-mobile.png",
+      "proof/agent-in-a-box/refusal-desktop.png",
+      "proof/agent-in-a-box/refusal-mobile.png"
+    ]
+  },
+  "claims": {
+    "fixturePolicyTests": {
+      "status": "verified-local",
+      "evidence": "3 fixture policy tests passed."
+    },
+    "taskClientContract": {
+      "status": "verified-local-mocked",
+      "evidence": "7 tests passed for quote verification, separate purchase and execution approvals, exact artifact validation, recovery, and correlated records."
+    },
+    "circleAdapterContract": {
+      "status": "verified-local-mocked",
+      "evidence": "6 tests passed; Arc receipt and transaction binding use a mock JSON-RPC transport."
+    },
+    "dashboardExecutionBoundary": {
+      "status": "verified-local",
+      "evidence": "3 route tests passed; the Circle signer route is loopback-only and rejects cross-origin or public-host requests."
+    },
+    "invoiceAgentBuild": {
+      "status": "verified-local",
+      "evidence": "2 Rust tests passed against aomi-sdk 5.1.1."
+    },
+    "siteBuild": {
+      "status": "verified-ci-and-preview",
+      "evidence": "Next.js production build passed in GitHub Actions; Vercel reported the protected preview ready."
+    },
+    "desktopAndMobileBrowserProof": {
+      "status": "verified-local",
+      "evidence": "Playwright exercised all public site pages plus the approved and refused invoice states at 1440x1000 and 390x844 with zero console errors."
+    },
+    "hostedTaskEndpoint": {
+      "status": "blocked",
+      "evidence": "No confirmed public hosted /v1/task/build endpoint. The Execution Kit remains Preview."
+    },
+    "deployedAomiApplication": {
+      "status": "unverified",
+      "evidence": "No deployment was performed and no Application ID has been issued for this proof."
+    },
+    "circleWalletExecution": {
+      "status": "unverified",
+      "evidence": "No funded Circle Agent Wallet transfer was submitted."
+    },
+    "arcReceiptVerification": {
+      "status": "unverified",
+      "evidence": "No live Arc transaction hash or independently queried receipt exists."
+    },
+    "authorCleanCheckoutReplay": {
+      "status": "verified",
+      "evidence": "A fresh local clone at sourceCommit passed frozen install, all checks, both production builds, Rust check, and Rust formatting on 2026-10-06T10:30:10Z."
+    },
+    "independentReplay": {
+      "status": "unverified",
+      "evidence": "The author clean-checkout replay is recorded in proof/clean-checkout.md; a non-author replay has not occurred."
+    }
+  }
+}

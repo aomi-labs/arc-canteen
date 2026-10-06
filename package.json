@@ -1,13 +1,16 @@
 {
   "name": "arc-canteen",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "packageManager": "pnpm@10.32.1",
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "typecheck": "tsc --noEmit"
+    "dev": "pnpm --filter @arc-canteen/site dev",
+    "dev:dashboard": "pnpm --filter @arc-canteen/invoice-dashboard dev",
+    "build": "pnpm -r --if-present build",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "test": "pnpm -r --if-present test",
+    "check:rust": "cargo check --manifest-path templates/invoice-agent/Cargo.toml",
+    "check": "pnpm typecheck && pnpm test && pnpm build && pnpm check:rust"
   },
   "dependencies": {
     "next": "16.1.0",
@@ -15,11 +18,8 @@
     "react-dom": "19.2.7"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "4.1.18",
     "@types/node": "24.10.4",
-    "@types/react": "19.2.14",
-    "@types/react-dom": "19.2.3",
-    "tailwindcss": "4.1.18",
+    "tsx": "4.20.6",
     "typescript": "5.9.3"
   }
 }

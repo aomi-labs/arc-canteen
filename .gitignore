@@ -5,3 +5,6 @@ out/
 .env*
 !.env.example
 *.tsbuildinfo
+.playwright-cli/
+output/
+target/
