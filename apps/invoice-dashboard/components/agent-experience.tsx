@@ -1,41 +1,54 @@
 "use client";
 
-import { AomiRuntimeProvider, useAomiRuntime } from "@aomi-labs/react";
-import { FormEvent, useMemo, useState } from "react";
+import { AgentRun, Aomi, MessageEvent } from "@aomi-labs/client";
+import { FormEvent, useMemo, useRef, useState } from "react";
 
 interface AgentExperienceProps {
   applicationId: string;
   backendUrl: string;
 }
 
-function messageText(message: unknown): string {
-  if (!message || typeof message !== "object") return String(message ?? "");
-  const record = message as Record<string, unknown>;
-  if (typeof record.content === "string") return record.content;
-  if (Array.isArray(record.content)) {
-    return record.content
-      .map((part) => {
-        if (typeof part === "string") return part;
-        if (part && typeof part === "object" && typeof (part as Record<string, unknown>).text === "string") {
-          return String((part as Record<string, unknown>).text);
-        }
-        return "";
-      })
-      .filter(Boolean)
-      .join("\n");
-  }
-  return JSON.stringify(record);
-}
-
-function AgentChat() {
-  const runtime = useAomiRuntime();
+function AgentChat({ applicationId, backendUrl }: { applicationId: number; backendUrl: string }) {
+  const aomi = useMemo(() => new Aomi({ baseUrl: backendUrl }), [backendUrl]);
+  const sessionId = useRef<string | undefined>(undefined);
+  const activeRun = useRef<AgentRun | null>(null);
   const [prompt, setPrompt] = useState("Pay invoice INV-1042 if it is still safe.");
-  const messages = runtime.getMessages() as unknown[];
+  const [messages, setMessages] = useState<readonly MessageEvent[]>([]);
+  const [isRunning, setIsRunning] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const displayMessages = messages.filter((message) => message.content.trim());
 
-  function submit(event: FormEvent) {
+  async function submit(event: FormEvent) {
     event.preventDefault();
     const value = prompt.trim();
-    if (value) runtime.sendMessage(value);
+    if (!value) return;
+    setError(null);
+    setIsRunning(true);
+    try {
+      const run = aomi.agent.run(value, {
+        sessionId: sessionId.current,
+        target: { mode: "direct", applicationId },
+      });
+      activeRun.current = run;
+      const result = await run.result();
+      sessionId.current = result.sessionId;
+      setMessages(result.messages);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      activeRun.current = null;
+      setIsRunning(false);
+    }
+  }
+
+  async function stop() {
+    const run = activeRun.current;
+    if (!run) return;
+    try {
+      await run.interrupt();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    }
   }
 
   return (
@@ -45,21 +58,23 @@ function AgentChat() {
           <p className="eyebrow">Aomi Agent API</p>
           <h2>Assistant inside your app</h2>
         </div>
-        <span className={`status ${runtime.isRunning ? "running" : "ready"}`}>
-          {runtime.isRunning ? "Working" : "Ready"}
+        <span className={`status ${isRunning ? "running" : "ready"}`}>
+          {isRunning ? "Working" : "Ready"}
         </span>
       </div>
       <div className="messages" aria-live="polite">
-        {messages.length === 0 ? (
+        {displayMessages.length === 0 ? (
           <p className="empty">Ask the deployed invoice agent to inspect one of the fixture invoices.</p>
         ) : (
-          messages.map((message, index) => (
-            <article className="message" key={index}>
-              <pre>{messageText(message)}</pre>
+          displayMessages.map((message) => (
+            <article className={`message ${message.sender}`} key={message.event_id}>
+              <span className="message-sender">{message.sender}</span>
+              <pre>{message.content}</pre>
             </article>
           ))
         )}
       </div>
+      {error ? <p className="agent-error" role="alert">{error}</p> : null}
       <div className="quick-prompts">
         <button onClick={() => setPrompt("Pay invoice INV-1042 if it is still safe.")}>Approved invoice</button>
         <button onClick={() => setPrompt("Pay invoice INV-1043.")}>Changed address</button>
@@ -67,8 +82,8 @@ function AgentChat() {
       </div>
       <form onSubmit={submit} className="composer">
         <textarea value={prompt} onChange={(event) => setPrompt(event.target.value)} />
-        {runtime.isRunning ? (
-          <button type="button" onClick={runtime.cancelGeneration}>Stop</button>
+        {isRunning ? (
+          <button type="button" onClick={stop}>Stop</button>
         ) : (
           <button type="submit">Send to agent</button>
         )}
@@ -188,9 +203,7 @@ export function AgentExperience({ applicationId, backendUrl }: AgentExperiencePr
   }
   return (
     <div className="workspace">
-      <AomiRuntimeProvider backendUrl={backendUrl} applicationId={numericApplicationId}>
-        <AgentChat />
-      </AomiRuntimeProvider>
+      <AgentChat applicationId={numericApplicationId} backendUrl={backendUrl} />
       <CircleReview />
     </div>
   );

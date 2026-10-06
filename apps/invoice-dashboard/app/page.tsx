@@ -17,7 +17,7 @@ export default function Page() {
       </section>
       <AgentExperience
         applicationId={process.env.NEXT_PUBLIC_AOMI_APPLICATION_ID ?? ""}
-        backendUrl={process.env.NEXT_PUBLIC_AOMI_BACKEND_URL ?? "https://api.aomi.dev"}
+        backendUrl={process.env.NEXT_PUBLIC_AOMI_BACKEND_URL ?? "https://chat.aomi.dev"}
       />
     </main>
   );
