@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { ExternalLink, links } from "@/components/site-shell";
+import { links } from "@/components/links";
+import { ExternalLink } from "@/components/site-shell";
 
 export const metadata: Metadata = { title: "Builder Reference" };
 
