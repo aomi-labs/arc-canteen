@@ -1,7 +1,7 @@
 "use client";
 
-import { AgentRun, Aomi, MessageEvent } from "@aomi-labs/client";
-import { FormEvent, useMemo, useRef, useState } from "react";
+import { AomiWidget } from "@aomi-labs/widget-lib";
+import { useMemo, useState } from "react";
 
 interface AgentExperienceProps {
   applicationId: string;
@@ -9,85 +9,36 @@ interface AgentExperienceProps {
 }
 
 function AgentChat({ applicationId, backendUrl }: { applicationId: number; backendUrl: string }) {
-  const aomi = useMemo(() => new Aomi({ baseUrl: backendUrl }), [backendUrl]);
-  const sessionId = useRef<string | undefined>(undefined);
-  const activeRun = useRef<AgentRun | null>(null);
-  const [prompt, setPrompt] = useState("Pay invoice INV-1042 if it is still safe.");
-  const [messages, setMessages] = useState<readonly MessageEvent[]>([]);
-  const [isRunning, setIsRunning] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const displayMessages = messages.filter((message) => message.content.trim());
-
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    const value = prompt.trim();
-    if (!value) return;
-    setError(null);
-    setIsRunning(true);
-    try {
-      const run = aomi.agent.run(value, {
-        sessionId: sessionId.current,
-        target: { mode: "direct", applicationId },
-      });
-      activeRun.current = run;
-      const result = await run.result();
-      sessionId.current = result.sessionId;
-      setMessages(result.messages);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
-    } finally {
-      activeRun.current = null;
-      setIsRunning(false);
-    }
-  }
-
-  async function stop() {
-    const run = activeRun.current;
-    if (!run) return;
-    try {
-      await run.interrupt();
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
-    }
-  }
-
   return (
-    <section className="panel agent-panel">
-      <div className="panel-heading">
-        <div>
-          <p className="eyebrow">Aomi Agent API</p>
-          <h2>Assistant inside your app</h2>
-        </div>
-        <span className={`status ${isRunning ? "running" : "ready"}`}>
-          {isRunning ? "Working" : "Ready"}
-        </span>
+    <section className="widget-column">
+      <div className="widget-heading">
+        <p className="eyebrow">Aomi Widget · Application {applicationId}</p>
+        <p>Use the canonical hosted interface—not a reimplemented chat client.</p>
       </div>
-      <div className="messages" aria-live="polite">
-        {displayMessages.length === 0 ? (
-          <p className="empty">Ask the deployed invoice agent to inspect one of the fixture invoices.</p>
-        ) : (
-          displayMessages.map((message) => (
-            <article className={`message ${message.sender}`} key={message.event_id}>
-              <span className="message-sender">{message.sender}</span>
-              <pre>{message.content}</pre>
-            </article>
-          ))
-        )}
+      <div className="widget-shell">
+        <AomiWidget
+          applicationId={String(applicationId)}
+          apiUrl={backendUrl}
+          auth={{ kind: "browser_wallet" }}
+          wallets={{ evm: { preset: "popular" }, solana: false }}
+          walletFamilies={["evm"]}
+          walletPosition="footer"
+          routing={{
+            targets: [{ mode: "direct", apps: [{ applicationId }] }],
+            defaultMode: "direct",
+          }}
+          showSidebar={false}
+          persistThread
+          threadPersistenceKey={`arc-invoice-agent-${applicationId}-widget`}
+          height="680px"
+        />
       </div>
-      {error ? <p className="agent-error" role="alert">{error}</p> : null}
-      <div className="quick-prompts">
-        <button onClick={() => setPrompt("Pay invoice INV-1042 if it is still safe.")}>Approved invoice</button>
-        <button onClick={() => setPrompt("Pay invoice INV-1043.")}>Changed address</button>
-        <button onClick={() => setPrompt("Pay invoice INV-1044.")}>Already paid</button>
+      <div className="prompt-guide" aria-label="Invoice prompts to try">
+        <span>Try in the composer</span>
+        <code>Pay invoice INV-1042 if it is still safe.</code>
+        <code>Pay invoice INV-1043.</code>
+        <code>Pay invoice INV-1044.</code>
       </div>
-      <form onSubmit={submit} className="composer">
-        <textarea value={prompt} onChange={(event) => setPrompt(event.target.value)} />
-        {isRunning ? (
-          <button type="button" onClick={stop}>Stop</button>
-        ) : (
-          <button type="submit">Send to agent</button>
-        )}
-      </form>
     </section>
   );
 }

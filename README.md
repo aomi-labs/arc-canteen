@@ -12,7 +12,7 @@ The public site in `apps/site` is a launcher for these products. It intentionall
 ## Repository map
 
 - `apps/site` — product-first Tameion landing site.
-- `apps/invoice-dashboard` — headless Aomi agent plus explicit Circle Wallet execution review.
+- `apps/invoice-dashboard` — canonical Aomi Widget plus explicit Circle Wallet execution review.
 - `templates/invoice-agent` — Rust Aomi App with custom invoice and vendor API tools.
 - `fixtures/invoice-workflow` — deterministic approved, changed-address, and already-paid cases.
 - `packages/task-client` — hardened client for the Aomi Task API contract.
@@ -55,7 +55,7 @@ pnpm check:production
 ## Status and trust boundaries
 
 - **Execution Kit: Preview.** The client implements the expected `/v1/task/build` validation and recovery contract, but Aomi does not currently expose a confirmed public hosted Task endpoint. Do not present it as live until that endpoint passes the proof manifest gates.
-- **Agent-in-a-Box: live hosted starter.** Aomi Application 2938640 calls the public invoice APIs, and the dashboard embeds it through the direct `@aomi-labs/client` Agent API accessor. The approved and refusal paths are production-verified; Circle signing and Arc settlement are intentionally still unverified.
+- **Agent-in-a-Box: live hosted starter.** Aomi Application 2938640 calls the public invoice APIs, and the dashboard embeds it through `@aomi-labs/widget-lib`, locked to that Application ID in Direct mode. The approved and refusal paths are production-verified; Circle signing and Arc settlement are intentionally still unverified.
 - Circle Agent Wallet retains signing authority. Aomi prepares and orchestrates execution; it is not the custodian, trader, counterparty, or compliance principal.
 - A successful API response is not settlement. The live path records payment only after Circle confirmation and an independent `eth_getTransactionReceipt` check against Arc.
 

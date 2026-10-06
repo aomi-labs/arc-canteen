@@ -6,13 +6,18 @@ import { ExternalLink } from "@/components/site-shell";
 
 export const metadata: Metadata = { title: "Arc Agent-in-a-Box" };
 
-const embed = `import { Aomi } from "@aomi-labs/client";
+const embed = `import { AomiWidget } from "@aomi-labs/widget-lib";
+import "@aomi-labs/widget-lib/styles.css";
 
-const aomi = new Aomi({ baseUrl: "https://chat.aomi.dev" });
-
-const run = aomi.agent.run(prompt, {
-  target: { mode: "direct", applicationId: 2938640 },
-});`;
+<AomiWidget
+  applicationId="2938640"
+  apiUrl="https://chat.aomi.dev"
+  auth={{ kind: "browser_wallet" }}
+  routing={{
+    targets: [{ mode: "direct", apps: [{ applicationId: 2938640 }] }],
+    defaultMode: "direct",
+  }}
+/>`;
 
 export default function AgentInABox() {
   return (
@@ -35,7 +40,7 @@ export default function AgentInABox() {
       </div></section>
 
       <section className="runbook-section"><div className="container section-grid">
-        <header className="section-index"><span>03</span><div><p className="eyebrow">Embed</p><h2>Call the hosted agent from your product.</h2></div></header>
+        <header className="section-index"><span>03</span><div><p className="eyebrow">Embed</p><h2>Mount the hosted agent in your product.</h2></div></header>
         <div><CodeBlock label="FRONTEND">{embed}</CodeBlock><p className="inline-note"><strong>Boundary:</strong> the agent may read, reason, and prepare. Your authenticated backend owns Circle wallet review and signing.</p></div>
       </div></section>
 
