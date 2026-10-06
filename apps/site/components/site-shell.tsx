@@ -10,9 +10,9 @@ export const links = {
   agentDocs: "https://aomi.dev/docs/integrate/agent",
   build: "https://build.aomi.dev",
   tameion: "https://tameion.thecanteenapp.com",
-  taskClient: "https://github.com/aomi-labs/arc-canteen/tree/6140e73377ad000f117a64eda2e34e5062139953/packages/task-client",
-  invoiceAgent: "https://github.com/aomi-labs/arc-canteen/tree/6140e73377ad000f117a64eda2e34e5062139953/templates/invoice-agent",
-  invoiceDashboard: "https://github.com/aomi-labs/arc-canteen/tree/6140e73377ad000f117a64eda2e34e5062139953/apps/invoice-dashboard",
+  taskClient: "https://github.com/aomi-labs/arc-canteen/tree/main/packages/task-client",
+  invoiceAgent: "https://github.com/aomi-labs/arc-canteen/tree/main/templates/invoice-agent",
+  invoiceDashboard: "https://github.com/aomi-labs/arc-canteen/tree/main/apps/invoice-dashboard",
   invoiceDashboardLive: "https://arc-invoice-agent.vercel.app",
 };
 

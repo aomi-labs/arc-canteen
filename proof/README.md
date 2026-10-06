@@ -14,12 +14,12 @@ The manifest is intentionally explicit about the difference between fixture proo
 
 A live proof must record, without exposing credentials:
 
-1. the deployed Aomi Application ID and reachable Agent API session;
+1. the deployed Aomi Application ID and reachable Agent API session (verified for Application `2938640`);
 2. the exact reviewed Circle Wallet operation;
 3. Circle's confirmed transaction identifier;
 4. an independent Arc RPC receipt with matching hash, chain, recipient, and success status.
 
-Until all four exist, the website must keep the relevant status as Preview or local-only.
+The Agent-in-a-Box hosted-runtime claim can be marked live after item 1. The Execution Kit remains Preview until its hosted Task seam is verified, and no settlement claim is allowed until all four items exist.
 
 ## Replay
 

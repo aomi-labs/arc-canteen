@@ -55,12 +55,12 @@ pnpm check:production
 ## Status and trust boundaries
 
 - **Execution Kit: Preview.** The client implements the expected `/v1/task/build` validation and recovery contract, but Aomi does not currently expose a confirmed public hosted Task endpoint. Do not present it as live until that endpoint passes the proof manifest gates.
-- **Agent-in-a-Box: local starter.** The app tools, policy, dashboard, and wallet adapter are implemented. Hosted readiness requires deploying through Aomi Build, configuring the Application ID, and completing the live receipt proof.
+- **Agent-in-a-Box: live hosted starter.** Aomi Application 2938640 calls the public invoice APIs, and the dashboard embeds it through the direct `@aomi-labs/client` Agent API accessor. The approved and refusal paths are production-verified; Circle signing and Arc settlement are intentionally still unverified.
 - Circle Agent Wallet retains signing authority. Aomi prepares and orchestrates execution; it is not the custodian, trader, counterparty, or compliance principal.
 - A successful API response is not settlement. The live path records payment only after Circle confirmation and an independent `eth_getTransactionReceipt` check against Arc.
 
 ## Invoice proof
 
-`INV-1042` is the only fixture eligible for preparation. `INV-1043` must refuse because the vendor wallet changed. `INV-1044` must refuse because payment is already confirmed. These are local fixtures—not evidence of a live Arc transfer.
+`INV-1042` is the only fixture eligible for preparation. `INV-1043` must refuse because the vendor wallet changed. `INV-1044` must refuse because payment is already confirmed. The hosted agent has exercised all three against the public fixture API; this is not evidence of a live Arc transfer.
 
-No deployment, funded-wallet transaction, or mainnet action is performed by the repository checks.
+Repository checks never submit a funded-wallet transaction or mainnet action.

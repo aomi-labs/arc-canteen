@@ -39,11 +39,11 @@ export default function Home() {
               <Link className="text-link" href="/execution-kit">Explore the execution path →</Link>
             </article>
             <article className="product-card blue">
-              <div className="card-top"><span className="answer">No</span><span className="status ready">Build locally</span></div>
+              <div className="card-top"><span className="answer">No</span><span className="status ready">Live starter</span></div>
               <h3>Arc Agent-in-a-Box</h3>
               <p>Start from an Aomi App that can call your product APIs, reason over live domain state, prepare Arc transactions, simulate them, and surface the agent in your dashboard.</p>
               <ul><li>Custom API tools and policy</li><li>Hosted Aomi agent runtime</li><li>Embeddable headless UI client</li></ul>
-              <p className="availability">Invoice starter included. Deployment and live wallet proof require your Aomi Application ID and Circle wallet.</p>
+              <p className="availability">The hosted invoice agent and direct Agent API accessor are live. Builders replace the fixture tools with their own app APIs; Circle signing stays in their wallet backend.</p>
               <Link className="text-link" href="/agent-in-a-box">Build an Arc agent →</Link>
             </article>
           </div>
