@@ -3,6 +3,7 @@ import { SiteFooter, SiteHeader } from "@/components/site-shell";
 import "@aomi-labs/widget-lib/styles.css";
 import "./globals.css";
 import "./agent-in-a-box.css";
+import "./title-layout.css";
 
 export const metadata: Metadata = {
   title: { default: "Aomi × Arc Builder Products", template: "%s | Aomi × Arc" },

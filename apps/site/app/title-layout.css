@@ -1,0 +1,30 @@
+.runbook-hero h1,
+.compact-hero h1,
+.section-index h2,
+.section h2,
+.agent-handoff .section-index h2 {
+  font-family: Arial, Helvetica, sans-serif;
+  font-weight: 800;
+}
+
+.runbook-hero-grid {
+  grid-template-columns: 1.25fr 1fr;
+}
+
+.compact-hero-grid {
+  grid-template-columns: 1.53fr .47fr;
+}
+
+.section-grid,
+.content-grid {
+  grid-template-columns: .7fr 1fr;
+}
+
+@media (max-width: 900px) {
+  .runbook-hero-grid,
+  .compact-hero-grid,
+  .section-grid,
+  .content-grid {
+    grid-template-columns: 1fr;
+  }
+}
