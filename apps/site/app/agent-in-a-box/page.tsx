@@ -20,7 +20,7 @@ export default function AgentInABox() {
       <section className="compact-hero">
         <div className="container compact-hero-grid">
           <div><p className="eyebrow blue-text">02 · Agent-in-a-Box</p><h1>Build the agent your Arc app needs.</h1><p className="lede">Connect your product APIs to a hosted Aomi App, embed it in your interface, and keep Circle signing under explicit wallet control.</p></div>
-          <dl className="status-panel"><div><dt>Status</dt><dd><i /> Live starter</dd></div><div><dt>Application</dt><dd>2938640</dd></div><div><dt>Proof</dt><dd>3 invoice cases</dd></div><div><dt>Settlement</dt><dd>Builder-owned</dd></div></dl>
+          <dl className="status-panel"><div><dt>Status</dt><dd><i /> Live starter</dd></div><div><dt>Application</dt><dd>2938640</dd></div><div><dt>Test cases</dt><dd>3 invoices</dd></div><div><dt>Settlement</dt><dd>Builder-owned</dd></div></dl>
         </div>
       </section>
 

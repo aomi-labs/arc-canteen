@@ -18,8 +18,8 @@ async function page(path, expectedText) {
 await page("/", /Ship an Arc finance agent in 10 minutes/);
 await page("/execution-kit", /Aomi [×x] Circle/);
 await page("/agent-in-a-box", /Agent-in-a-Box/);
-await page("/proof/pay-the-right-invoice", /Pay the right invoice/);
 await page("/examples/invoice-dashboard", /Hosted agent chat is live/);
+await response("/proof/pay-the-right-invoice", { status: 404 });
 
 const home = await (await response("/")).text();
 assert.match(home, /href="https:\/\/arc-invoice-agent\.vercel\.app"/, "live proof CTA lost its href");
@@ -77,7 +77,7 @@ console.log(JSON.stringify({
   siteUrl,
   dashboardUrl,
   checks: {
-    productPages: 5,
+    productPages: 4,
     dashboard: true,
     approvedInvoice: "INV-1042",
     refusedInvoices: ["INV-1043", "INV-1044"],

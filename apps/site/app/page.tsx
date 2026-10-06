@@ -8,12 +8,6 @@ const paths = [
   { have: "Product APIs, but no agent", use: "Arc Agent-in-a-Box", action: "Deploy the invoice starter", status: "Live", href: "/agent-in-a-box", tone: "blue" },
 ];
 
-const proof = [
-  ["INV-1042", "Approved", "Prepare for wallet review", "pass"],
-  ["INV-1043", "Address changed", "Refuse before signing", "refuse"],
-  ["INV-1044", "Already paid", "Refuse duplicate payment", "refuse"],
-];
-
 export default function Home() {
   return (
     <>
@@ -35,7 +29,7 @@ export default function Home() {
 
       <section className="runbook-section" id="choose">
         <div className="container section-grid">
-          <header className="section-index"><span>01</span><div><p className="eyebrow">Choose a path</p><h2>Start with what you already have.</h2></div></header>
+          <header className="section-index"><span>01</span><div><p className="eyebrow">Choose a path</p><h2>Do you already have an agent or decision engine?</h2></div></header>
           <div className="path-table">
             <div className="path-head"><span>You already have</span><span>Use</span><span>First action</span><span>Status</span></div>
             {paths.map((path) => <Link className={`path-row ${path.tone}`} href={path.href} key={path.use}><span>{path.have}</span><strong>{path.use}</strong><span>{path.action} →</span><b>{path.status}</b></Link>)}
@@ -43,22 +37,27 @@ export default function Home() {
         </div>
       </section>
 
+      <section className="runbook-section" id="execution">
+        <div className="container section-grid">
+          <header className="section-index"><span>02</span><div><p className="eyebrow">Execution Kit · preview</p><h2>Bring your agent. Control the transaction path.</h2></div></header>
+          <div className="instruction-list">
+            <div className="instruction"><b>01</b><div><strong>Submit a bounded intent</strong><p>Your existing agent sends the exact action and constraints to the Aomi Task API.</p></div><span>Input: agent decision</span></div>
+            <div className="instruction"><b>02</b><div><strong>Verify the Task response</strong><p>The client checks the attestation, identities, chain, fee cap, recipient, and amount.</p></div><span>Fail closed</span></div>
+            <div className="instruction"><b>03</b><div><strong>Review before signing</strong><p>Circle Agent Wallet shows the exact transfer and retains signing authority.</p></div><span>Human approval</span></div>
+            <div className="instruction"><b>04</b><div><strong>Confirm the Arc receipt</strong><p>Your app marks work complete only after independent receipt verification.</p></div><Link href="/execution-kit">Open full brief →</Link></div>
+          </div>
+        </div>
+      </section>
+
       <section className="runbook-section" id="agent">
         <div className="container section-grid">
-          <header className="section-index"><span>02</span><div><p className="eyebrow blue-text">Agent-in-a-Box · live</p><h2>Turn your APIs into an agent.</h2></div></header>
+          <header className="section-index"><span>03</span><div><p className="eyebrow blue-text">Agent-in-a-Box · live</p><h2>Turn your APIs into an agent.</h2></div></header>
           <div className="instruction-list">
             <div className="instruction"><b>01</b><div><strong>Expose your product API</strong><p>Implement the domain operations the agent needs, such as <code>get_invoice</code>, <code>get_vendor</code>, and <code>check_payment_status</code>.</p></div><span>Input: HTTPS API</span></div>
             <div className="instruction"><b>02</b><div><strong>Replace the fixture client</strong><p>Edit <code>templates/invoice-agent/src/client.rs</code> and keep deterministic money checks in code.</p></div><span>Output: typed tools</span></div>
             <div className="instruction"><b>03</b><div><strong>Deploy with Aomi Build</strong><p>Connect this repository, set <code>INVOICE_API_BASE_URL</code>, and activate the Aomi App.</p></div><span>Output: Application ID</span></div>
             <div className="instruction"><b>04</b><div><strong>Embed it in your UI</strong><p>Use <code>@aomi-labs/client</code> with the Application ID. Keep signing behind your authenticated wallet backend.</p></div><Link href="/agent-in-a-box">Open full recipe →</Link></div>
           </div>
-        </div>
-      </section>
-
-      <section className="runbook-section proof-runbook" id="proof">
-        <div className="container section-grid">
-          <header className="section-index"><span>03</span><div><p className="eyebrow">Verify the boundary</p><h2>One approval. Two deliberate refusals.</h2></div></header>
-          <div><div className="proof-table">{proof.map(([id, state, result, status]) => <div className="proof-row" key={id}><code>{id}</code><span>{state}</span><strong>{result}</strong><b className={status}>{status === "pass" ? "ALLOW" : "REFUSE"}</b></div>)}</div><div className="actions compact-actions"><ExternalLink className="button primary" href={links.invoiceDashboardLive}>Run all three cases ↗</ExternalLink><Link className="button" href="/proof/pay-the-right-invoice">Read acceptance criteria</Link></div></div>
         </div>
       </section>
 
