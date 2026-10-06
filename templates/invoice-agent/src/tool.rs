@@ -10,8 +10,8 @@ impl DynAomiTool for GetInvoice {
     const NAME: &'static str = "get_invoice";
     const DESCRIPTION: &'static str = "Read one invoice from the builder's application API. Use before making any payment decision.";
 
-    fn run(_app: &InvoiceAgent, args: Self::Args, _ctx: DynToolCallCtx) -> Result<Value, String> {
-        serde_json::to_value(InvoiceClient::from_env()?.invoice(&args.invoice_id)?)
+    fn run(_app: &InvoiceAgent, args: Self::Args, ctx: DynToolCallCtx) -> Result<Value, String> {
+        serde_json::to_value(InvoiceClient::from_ctx(&ctx)?.invoice(&args.invoice_id)?)
             .map_err(|error| error.to_string())
     }
 }
@@ -24,8 +24,8 @@ impl DynAomiTool for GetVendor {
     const NAME: &'static str = "get_vendor";
     const DESCRIPTION: &'static str = "Read the current approved vendor record and payout wallet from the builder's application API.";
 
-    fn run(_app: &InvoiceAgent, args: Self::Args, _ctx: DynToolCallCtx) -> Result<Value, String> {
-        serde_json::to_value(InvoiceClient::from_env()?.vendor(&args.vendor_id)?)
+    fn run(_app: &InvoiceAgent, args: Self::Args, ctx: DynToolCallCtx) -> Result<Value, String> {
+        serde_json::to_value(InvoiceClient::from_ctx(&ctx)?.vendor(&args.vendor_id)?)
             .map_err(|error| error.to_string())
     }
 }
@@ -38,8 +38,8 @@ impl DynAomiTool for CheckPaymentStatus {
     const NAME: &'static str = "check_payment_status";
     const DESCRIPTION: &'static str = "Check whether the application already records a confirmed payment for this invoice. Always call before preparing payment.";
 
-    fn run(_app: &InvoiceAgent, args: Self::Args, _ctx: DynToolCallCtx) -> Result<Value, String> {
-        serde_json::to_value(InvoiceClient::from_env()?.payment(&args.invoice_id)?)
+    fn run(_app: &InvoiceAgent, args: Self::Args, ctx: DynToolCallCtx) -> Result<Value, String> {
+        serde_json::to_value(InvoiceClient::from_ctx(&ctx)?.payment(&args.invoice_id)?)
             .map_err(|error| error.to_string())
     }
 }
@@ -55,9 +55,9 @@ impl DynAomiTool for PrepareInvoicePayment {
     fn run_with_routes(
         _app: &InvoiceAgent,
         args: Self::Args,
-        _ctx: DynToolCallCtx,
+        ctx: DynToolCallCtx,
     ) -> Result<ToolReturn, String> {
-        let decision = InvoiceClient::from_env()?.decision(&args.invoice_id)?;
+        let decision = InvoiceClient::from_ctx(&ctx)?.decision(&args.invoice_id)?;
         let PaymentDecision::Approve {
             invoice_id,
             chain_id,
@@ -116,9 +116,9 @@ impl DynAomiTool for MarkInvoicePaid {
     const NAME: &'static str = "mark_invoice_paid";
     const DESCRIPTION: &'static str = "Write the confirmed Arc transaction hash back to the application API. This is a routed continuation after wallet execution, never a substitute for settlement confirmation.";
 
-    fn run(_app: &InvoiceAgent, args: Self::Args, _ctx: DynToolCallCtx) -> Result<Value, String> {
+    fn run(_app: &InvoiceAgent, args: Self::Args, ctx: DynToolCallCtx) -> Result<Value, String> {
         serde_json::to_value(
-            InvoiceClient::from_env()?.mark_paid(&args.invoice_id, &args.transaction_hash)?,
+            InvoiceClient::from_ctx(&ctx)?.mark_paid(&args.invoice_id, &args.transaction_hash)?,
         )
         .map_err(|error| error.to_string())
     }

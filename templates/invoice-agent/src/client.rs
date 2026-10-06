@@ -17,11 +17,15 @@ pub(crate) struct InvoiceClient {
 }
 
 impl InvoiceClient {
-    pub(crate) fn from_env() -> Result<Self, String> {
-        let base_url = std::env::var("INVOICE_API_BASE_URL")
-            .unwrap_or_else(|_| "http://127.0.0.1:3001/api".to_string())
-            .trim_end_matches('/')
-            .to_string();
+    pub(crate) fn from_ctx(ctx: &aomi_sdk::DynToolCallCtx) -> Result<Self, String> {
+        let base_url = aomi_sdk::resolve_secret_value(
+            ctx,
+            None,
+            crate::INVOICE_API_BASE_URL.name,
+            "invoice agent requires INVOICE_API_BASE_URL",
+        )?
+        .trim_end_matches('/')
+        .to_string();
         if !(base_url.starts_with("https://")
             || base_url.starts_with("http://127.0.0.1:")
             || base_url.starts_with("http://localhost:"))
