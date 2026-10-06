@@ -21,11 +21,11 @@
       "sourceCommit": "9a352666b4f4ffa9e650ac1b0ba7762c1a1cc134",
       "status": "ready-public"
     },
-    "invoiceDashboard": {
-      "url": "https://arc-invoice-agent.vercel.app",
+    "agentInABox": {
+      "url": "https://arc-canteen.aomi.dev/agent-in-a-box#watch-live",
       "deploymentId": "dpl_Htb7h51L2iRZfaBqU2ja1sUQZQFv",
       "sourceCommit": "87f98021b6ae7322134a79c9ec7ae684af4ca971",
-      "status": "ready-public"
+      "status": "integrated-public"
     }
   },
   "liveIdentifiers": {
@@ -89,7 +89,7 @@
     },
     "publicProductionSmoke": {
       "status": "verified-production",
-      "evidence": "The public site and dashboard returned the expected product pages, approved INV-1042, refused INV-1043 and INV-1044, and rejected public Circle signer access."
+      "evidence": "The public Agent-in-a-Box page embeds the live widget; the fixture API approved INV-1042, refused INV-1043 and INV-1044, and rejected public Circle signer access."
     },
     "hostedTaskEndpoint": {
       "status": "blocked",
@@ -101,7 +101,7 @@
     },
     "hostedAgentApiSession": {
       "status": "verified-production",
-      "evidence": "The public dashboard used the direct @aomi-labs/client accessor against Application 2938640 in one persistent session: INV-1042 reached exact wallet review, INV-1043 refused the changed address, and INV-1044 refused the duplicate payment with zero browser warnings or errors."
+      "evidence": "The public Agent-in-a-Box page embeds @aomi-labs/widget-lib in locked Direct mode against Application 2938640: INV-1042 reached exact wallet review, INV-1043 refused the changed address, and INV-1044 refused the duplicate payment."
     },
     "circleWalletExecution": {
       "status": "unverified",

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { CodeBlock } from "@/components/code-block";
+import { InvoiceAgentWidget } from "@/components/invoice-agent-widget";
 import { links } from "@/components/links";
 import { ExternalLink } from "@/components/site-shell";
 
@@ -44,9 +44,23 @@ export default function AgentInABox() {
         <div><CodeBlock label="FRONTEND">{embed}</CodeBlock><p className="inline-note"><strong>Boundary:</strong> the agent may read, reason, and prepare. Your authenticated backend owns Circle wallet review and signing.</p></div>
       </div></section>
 
-      <section className="runbook-section proof-runbook"><div className="container section-grid">
-        <header className="section-index"><span>04</span><div><p className="eyebrow">Verify</p><h2>Exercise the live acceptance cases.</h2></div></header>
-        <div className="instruction-list"><div className="instruction"><b>✓</b><div><strong>Pay invoice INV-1042</strong><p>Expected: prepare one USDC payment for wallet review.</p></div><span>ALLOW</span></div><div className="instruction"><b>×</b><div><strong>Pay invoice INV-1043</strong><p>Expected: refuse because the vendor address changed.</p></div><span>REFUSE</span></div><div className="instruction"><b>×</b><div><strong>Pay invoice INV-1044</strong><p>Expected: refuse because payment is already confirmed.</p></div><span>REFUSE</span></div><div className="actions compact-actions"><ExternalLink className="button primary" href={links.invoiceDashboardLive}>Run live proof ↗</ExternalLink><ExternalLink className="button" href={links.invoiceAgent}>Open template source ↗</ExternalLink><Link className="button" href="/examples/invoice-dashboard">Dashboard integration</Link></div></div>
+      <section className="runbook-section live-agent-section" id="watch-live"><div className="container section-grid">
+        <header className="section-index"><span>04</span><div><p className="eyebrow blue-text">Live · Application 2938640</p><h2>Watch it live.</h2><p className="live-agent-note">This invoice agent was built from the original Tameion RFB in one shot with agentic support. Ask it to pay <code>INV-1042</code>, <code>INV-1043</code>, or <code>INV-1044</code>.</p></div></header>
+        <div><InvoiceAgentWidget /><div className="live-prompts" aria-label="Invoice prompts to try"><span>Try</span><code>Pay invoice INV-1042 if it is still safe.</code><code>Pay invoice INV-1043.</code><code>Pay invoice INV-1044.</code></div></div>
+      </div></section>
+
+      <section className="runbook-section rfb-section"><div className="container section-grid">
+        <header className="section-index"><span>05</span><div><p className="eyebrow">Source challenge</p><h2>The task we built from.</h2></div></header>
+        <details className="rfb-disclosure">
+          <summary><span><b>Tameion RFB 02</b>AP/AR Automation Agent</span><em>Expand original task</em></summary>
+          <div className="rfb-content">
+            <p className="rfb-kicker">Invoices are still read by hand, and paid at whatever moment someone gets to them.</p>
+            <p><strong>The problem.</strong> AP/AR teams still process invoices, decide payment timing, and chase collections manually. The RFB asks builders to automate that cycle, reduce error and fraud, and improve cash flow.</p>
+            <div className="rfb-columns"><div><h3>What the AI decides</h3><ul><li>Read invoices, emails, and contracts to determine what is owed.</li><li>Optimize vendor payment timing against preserving cash.</li><li>Detect duplicate invoices and probable fraud.</li><li>Screen a vendor wallet before paying it.</li><li>Match payments to invoices automatically.</li></ul></div><div><h3>What builders create</h3><ul><li>Invoice ingestion from email, PDF, or API.</li><li>Payment-timing optimization engines.</li><li>Payment workflows with address screening.</li><li>Receivables collection timed to the customer.</li></ul></div></div>
+            <p className="rfb-built"><strong>What we built:</strong> a hosted invoice agent that checks vendor approval, detects a changed payout address, refuses duplicates, and prepares an Arc USDC payment for explicit Circle Wallet review.</p>
+            <ExternalLink className="button" href={`${links.tameion}#rfbs`}>Read the original Tameion RFB ↗</ExternalLink>
+          </div>
+        </details>
       </div></section>
     </>
   );
