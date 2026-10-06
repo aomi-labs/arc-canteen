@@ -10,7 +10,6 @@ export function ExternalLink({ href, children, className = "" }: { href: string;
 
 const nav = [
   { label: "Start", href: "/#start" },
-  { label: "Choose", href: "/#choose" },
   { label: "Agent", href: "/agent-in-a-box" },
   { label: "Execution", href: "/execution-kit" },
   { label: "Reference", href: "/reference" },
