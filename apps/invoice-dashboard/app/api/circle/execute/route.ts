@@ -1,10 +1,21 @@
-import { ARC_TESTNET_CHAIN_ID, CircleArcWallet, verifyArcReceipt } from "@arc-canteen/circle-arc-wallet";
+import { ARC_TESTNET_CHAIN_ID, CircleArcWallet, verifyArcTransferReceipt } from "@arc-canteen/circle-arc-wallet";
 import { evaluateCurrentInvoice, recordPayment } from "@/lib/payment-store";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
+function isLocalReview(request: Request) {
+  const url = new URL(request.url);
+  const origin = request.headers.get("origin");
+  return ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname) && origin === url.origin;
+}
+
 export async function POST(request: Request) {
+  if (!isLocalReview(request)) {
+    return NextResponse.json({
+      error: "The reference signer is loopback-only. Integrate @arc-canteen/circle-arc-wallet behind your authenticated application backend.",
+    }, { status: 403 });
+  }
   const body = await request.json() as { invoiceId?: string; confirmed?: boolean };
   if (body.confirmed !== true || !body.invoiceId) {
     return NextResponse.json({ error: "Explicit confirmation and invoiceId are required" }, { status: 400 });
@@ -36,7 +47,11 @@ export async function POST(request: Request) {
     if (!result.transactionHash) throw new Error("Circle did not return a confirmed Arc transaction hash");
     const rpcUrl = process.env.ARC_TESTNET_RPC_URL;
     if (!rpcUrl) throw new Error("ARC_TESTNET_RPC_URL is required for independent receipt verification");
-    const receipt = await verifyArcReceipt(result.transactionHash, rpcUrl);
+    const receipt = await verifyArcTransferReceipt(result.transactionHash, rpcUrl, {
+      from: wallet.walletAddress,
+      to: decision.recipient,
+      valueWei: decision.amountWei,
+    });
     const payment = recordPayment(decision.invoiceId, receipt.transactionHash);
     return NextResponse.json({ decision, circle: result, receipt, payment });
   } catch (error) {

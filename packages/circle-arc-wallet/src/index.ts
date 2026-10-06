@@ -35,6 +35,13 @@ export interface ArcReceipt {
   status: "0x1";
 }
 
+export interface ArcTransferReceipt extends ArcReceipt {
+  from: `0x${string}`;
+  to: `0x${string}`;
+  value: `0x${string}`;
+  input: "0x";
+}
+
 export type CommandRunner = (
   command: string,
   args: readonly string[],
@@ -268,4 +275,41 @@ export async function verifyArcReceipt(
     blockNumber: blockNumber as `0x${string}`,
     status: "0x1",
   };
+}
+
+export async function verifyArcTransferReceipt(
+  transactionHash: string,
+  rpcUrl: string,
+  expected: { from: string; to: string; valueWei: string },
+  fetchImpl: typeof fetch = fetch,
+): Promise<ArcTransferReceipt> {
+  const receipt = await verifyArcReceipt(transactionHash, rpcUrl, fetchImpl);
+  const from = address(expected.from);
+  const to = address(expected.to);
+  if (!/^(0|[1-9][0-9]*)$/.test(expected.valueWei)) throw new Error("Expected transfer value must be decimal wei");
+  const value = `0x${BigInt(expected.valueWei).toString(16)}` as `0x${string}`;
+  const response = await fetchImpl(rpcUrl, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 2, method: "eth_getTransactionByHash", params: [transactionHash] }),
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (!response.ok) throw new Error(`Arc RPC returned ${response.status}`);
+  const body = await response.json() as { result?: Record<string, unknown>; error?: unknown };
+  if (body.error || !body.result) throw new Error("Arc transaction is not available");
+  const actualHash = readString(body.result, ["hash"]);
+  const actualFrom = readString(body.result, ["from"]);
+  const actualTo = readString(body.result, ["to"]);
+  const actualValue = readString(body.result, ["value"]);
+  const input = readString(body.result, ["input"]);
+  if (
+    actualHash?.toLowerCase() !== receipt.transactionHash ||
+    actualFrom?.toLowerCase() !== from ||
+    actualTo?.toLowerCase() !== to ||
+    actualValue?.toLowerCase() !== value ||
+    input !== "0x"
+  ) {
+    throw new Error("Arc transaction does not match the reviewed native transfer");
+  }
+  return { ...receipt, from, to, value, input: "0x" };
 }

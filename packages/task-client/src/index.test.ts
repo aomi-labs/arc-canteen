@@ -4,7 +4,8 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import test from "node:test";
 import os from "node:os";
 import path from "node:path";
-import { TaskClient, type TaskClientOptions, validateQuote, verifyAttestation } from "./index.ts";
+import { CircleArcWallet } from "@arc-canteen/circle-arc-wallet";
+import { ArcPurchasedArtifact, TaskClient, parseArcTransferArtifact, type ArcTransferPlan, type TaskClientOptions, type TaskQuotePreview, validateQuote, verifyAttestation } from "./index.ts";
 
 const payer = "0x1111111111111111111111111111111111111111";
 const recipient = "0x2222222222222222222222222222222222222222";
@@ -131,6 +132,188 @@ test("persists one authorization through an unknown delivery and recovery", asyn
     assert.equal(result.status, "complete");
     assert.equal(signatures, 1);
     assert.equal(sent[0], sent[1]);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("prepares a verified quote without signing or purchasing it", async () => {
+  const data = fixture();
+  const directory = await mkdtemp(path.join(os.tmpdir(), "arc-task-preview-"));
+  let requests = 0;
+  let signatures = 0;
+  try {
+    const client = new TaskClient({
+      ...data.options,
+      stateDirectory: directory,
+      signTypedData: async () => {
+        signatures += 1;
+        return `0x${"aa".repeat(65)}`;
+      },
+      fetch: async () => {
+        requests += 1;
+        return new Response(JSON.stringify(data.quote), { status: 402, headers: { "payment-required": data.header } });
+      },
+    });
+    const preview = await client.prepare(request);
+    assert.equal(preview.quoteId, data.quote.quoteId);
+    assert.equal(requests, 1);
+    assert.equal(signatures, 0);
+    const journal = JSON.parse(await readFile(path.join(directory, "state.json"), "utf8"));
+    assert.equal(journal.phase, "quoted");
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("accepts only one exact successful Arc native-USDC artifact", () => {
+  const sender = payer;
+  const target = "0x3333333333333333333333333333333333333333";
+  const amountWei = "1000000000000000000";
+  const boundedRequest = {
+    intent: "Pay approved invoice INV-1042",
+    chainId: 5_042_002,
+    sender,
+    payer: sender,
+    constraints: {
+      maxOutgoingUsdcWei: amountWei,
+      maxGasUnits: 100_000,
+      allowedTargets: [target],
+      minimumReceived: [],
+    },
+  };
+  const summary = {
+    interpretedTask: boundedRequest.intent,
+    transactionSafety: {},
+    expectedEffects: [],
+    approvals: [],
+    gas: { units: "21000" },
+    constraints: [{ name: "allowed_targets", status: "passed", message: null }],
+    source: { chainId: 5_042_002, blockNumber: 123, blockHash: `0x${"ab".repeat(32)}`, engine: "fixture", rules: "fixture" },
+    actionCount: 1,
+    outgoingUsdcWei: amountWei,
+  };
+  const quote: TaskQuotePreview = {
+    quoteId: "00000000-0000-0000-0000-000000000001",
+    payloadHash: "a".repeat(64),
+    summary,
+    pricing: { fee_microusd: "1030000", outgoing_usdc_wei: amountWei },
+    expiresAt: now + 300,
+  };
+  const artifact = {
+    build: {
+      version: 2,
+      status: "simulated",
+      actions: [{ chain_id: 5_042_002, from: sender, to: target, value: amountWei, data: "0x", label: "invoice", kind: "native_transfer" }],
+      simulation: { status: "passed", balanceChanges: [], approvals: [], fees: [], warnings: [], guards: [], gas: { units: "21000" }, logs: [] },
+      expiresAt: now + 300,
+      digest: "b".repeat(64),
+    },
+    report: {
+      contexts: [{ chain_id: 5_042_002, sender, block_number: 123, block_hash: `0x${"ab".repeat(32)}`, engine: "fixture", rules: "fixture", balance_overrides: [] }],
+      steps: [{ step: 1, chain_id: 5_042_002, label: "invoice", call: { to: target, value: amountWei, data: "0x", gas_limit: 21_000 }, execution: { status: "succeeded", return_data: "0x", gas_used: 21_000, logs: [], native_balance: null } }],
+    },
+    summary,
+  };
+  const bytes = Buffer.from(JSON.stringify(artifact));
+  const plan = parseArcTransferArtifact(bytes, boundedRequest, quote, "1", now);
+  assert.equal(plan.recipient, target);
+  assert.equal(plan.amountWei, amountWei);
+  artifact.build.actions[0].to = recipient;
+  assert.throws(() => parseArcTransferArtifact(Buffer.from(JSON.stringify(artifact)), boundedRequest, quote, "1", now), /does not match/);
+});
+
+test("persists correlated purchase, Circle, and Arc records and replays no transfer", async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "arc-execution-journal-"));
+  const target = "0x3333333333333333333333333333333333333333" as const;
+  const transactionHash = `0x${"56".repeat(32)}` as const;
+  let submissions = 0;
+  let reviews = 0;
+  const wallet = new CircleArcWallet({
+    walletAddress: payer,
+    runner: async () => {
+      submissions += 1;
+      return { stdout: JSON.stringify({ transactionHash, state: "complete" }), stderr: "" };
+    },
+  });
+  const rpcFetch: typeof fetch = async (_url, init) => {
+    const method = JSON.parse(String(init?.body)).method;
+    return new Response(JSON.stringify({ result: method === "eth_getTransactionReceipt"
+      ? { transactionHash, blockNumber: "0x2a", status: "0x1" }
+      : { hash: transactionHash, from: payer, to: target, value: "0xde0b6b3a7640000", input: "0x" } }));
+  };
+  const plan: ArcTransferPlan = {
+    chainId: 5_042_002,
+    sender: payer,
+    recipient: target,
+    amountUsdc: "1",
+    amountWei: "1000000000000000000",
+    reference: "INV-1042",
+    artifactHash: "a".repeat(64),
+    buildDigest: "b".repeat(64),
+    expiresAt: now + 300,
+    simulation: { status: "passed" },
+    summary: { actionCount: 1 },
+  };
+  try {
+    const purchased = new ArcPurchasedArtifact(plan, { transaction: "gateway-purchase" }, wallet, "https://rpc.example", directory, rpcFetch);
+    const first = await purchased.execute(() => { reviews += 1; return true; });
+    const second = await purchased.execute(() => { throw new Error("completed execution must not request another review"); });
+    assert.equal(first.receipt.transactionHash, transactionHash);
+    assert.equal(second.receipt.transactionHash, transactionHash);
+    assert.equal(submissions, 1);
+    assert.equal(reviews, 1);
+    const journal = JSON.parse(await readFile(path.join(directory, "execution.json"), "utf8"));
+    assert.equal(journal.phase, "complete");
+    assert.equal(journal.artifactHash, plan.artifactHash);
+    assert.equal(journal.servicePurchaseReceipt.transaction, "gateway-purchase");
+    assert.equal(journal.circle.transactionHash, journal.receipt.transactionHash);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("retries an uncertain Circle submission with the same idempotency key", async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "arc-execution-recovery-"));
+  const target = "0x3333333333333333333333333333333333333333" as const;
+  const transactionHash = `0x${"67".repeat(32)}` as const;
+  const commands: string[][] = [];
+  const wallet = new CircleArcWallet({
+    walletAddress: payer,
+    runner: async (_command, args) => {
+      commands.push([...args]);
+      if (commands.length === 1) throw new Error("transport failed after possible submission");
+      return { stdout: JSON.stringify({ transactionHash, state: "complete" }), stderr: "" };
+    },
+  });
+  const rpcFetch: typeof fetch = async (_url, init) => {
+    const method = JSON.parse(String(init?.body)).method;
+    return new Response(JSON.stringify({ result: method === "eth_getTransactionReceipt"
+      ? { transactionHash, blockNumber: "0x2c", status: "0x1" }
+      : { hash: transactionHash, from: payer, to: target, value: "0xde0b6b3a7640000", input: "0x" } }));
+  };
+  const plan: ArcTransferPlan = {
+    chainId: 5_042_002,
+    sender: payer,
+    recipient: target,
+    amountUsdc: "1",
+    amountWei: "1000000000000000000",
+    reference: "INV-1042",
+    artifactHash: "c".repeat(64),
+    buildDigest: "d".repeat(64),
+    expiresAt: now + 300,
+    simulation: { status: "passed" },
+    summary: { actionCount: 1 },
+  };
+  try {
+    const purchased = new ArcPurchasedArtifact(plan, { transaction: "gateway-purchase" }, wallet, "https://rpc.example", directory, rpcFetch);
+    await assert.rejects(purchased.execute(() => true), /transport failed/);
+    const pending = JSON.parse(await readFile(path.join(directory, "execution.json"), "utf8"));
+    assert.equal(pending.phase, "submission_pending");
+    await purchased.execute(() => true);
+    const firstKey = commands[0][commands[0].indexOf("--idempotency-key") + 1];
+    const secondKey = commands[1][commands[1].indexOf("--idempotency-key") + 1];
+    assert.equal(firstKey, secondKey);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

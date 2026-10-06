@@ -3,7 +3,14 @@ import { createHash, createPublicKey, randomUUID, verify } from "node:crypto";
 import type { JsonWebKey as NodeJsonWebKey } from "node:crypto";
 import { lstat, mkdir, open, readFile, rename, rmdir } from "node:fs/promises";
 import path from "node:path";
-import type { CircleArcWallet } from "@arc-canteen/circle-arc-wallet";
+import {
+  ARC_TESTNET_CHAIN_ID,
+  CircleArcWallet,
+  verifyArcTransferReceipt,
+  type ArcReceipt,
+  type CircleCommandReview,
+  type CircleTransferResult,
+} from "@arc-canteen/circle-arc-wallet";
 
 export type TaskRequest = {
   intent: string;
@@ -30,6 +37,14 @@ export type TaskClientOptions = {
 export type TaskPurchaseResult =
   | { status: "complete"; bytes: Buffer; receipt: unknown }
   | { status: "pending" };
+
+export type TaskQuotePreview = {
+  quoteId: string;
+  payloadHash: string;
+  summary: Record<string, unknown>;
+  pricing: Record<string, unknown>;
+  expiresAt: number;
+};
 
 const USDC = "0x3600000000000000000000000000000000000000";
 const GATEWAY = "0x0077777d7eba4688bdef3e311b846f25870a19b9";
@@ -225,21 +240,21 @@ export class TaskClient {
     return { response, bytes: Buffer.concat(chunks) };
   }
 
-  async purchase(request: TaskRequest): Promise<TaskPurchaseResult> {
+  private async withLock<T>(operation: () => Promise<T>): Promise<T> {
     await mkdir(this.options.stateDirectory, { recursive: true, mode: 0o700 });
     const info = await lstat(this.options.stateDirectory);
     requireThat(info.isDirectory() && !info.isSymbolicLink() && (info.mode & 0o077) === 0, "State directory must be private (0700) and not a symlink");
     const lock = path.join(this.options.stateDirectory, "lock");
     await mkdir(lock, { mode: 0o700 });
     try {
-      return await this.locked(request);
+      return await operation();
     } finally {
       await rmdir(lock);
     }
   }
 
-  private async locked(request: TaskRequest): Promise<TaskPurchaseResult> {
-    const policy = {
+  private policy(request: TaskRequest) {
+    return {
       endpoint: this.options.endpoint,
       subject: this.options.subject,
       payer: address(this.options.payer),
@@ -247,6 +262,10 @@ export class TaskClient {
       maxFee: this.options.maxFeeMicrousd.toString(),
       request: normalized(request),
     };
+  }
+
+  private async load(request: TaskRequest) {
+    const policy = this.policy(request);
     let state: Record<string, any>;
     try {
       const file = path.join(this.options.stateDirectory, "state.json");
@@ -259,6 +278,11 @@ export class TaskClient {
       await this.save(state);
     }
     requireThat(stable(state.policy) === stable(policy), "Existing purchase differs; retain journal and reconcile it before any new purchase");
+    return state;
+  }
+
+  private async prepared(request: TaskRequest) {
+    let state = await this.load(request);
     if (!state.quote) {
       const { response, bytes } = await this.post({ ...request, idempotencyKey: state.idempotencyKey });
       requireThat(response.status === 402, "No payable quote; retain idempotency key");
@@ -269,6 +293,29 @@ export class TaskClient {
       state = { ...state, quote, requiredHeader: header, verifiedAt: this.now(), phase: "quoted" };
       await this.save(state);
     }
+    validateQuote(state.quote, state.requiredHeader, request, this.options, state.paymentSignature ? state.verifiedAt : this.now());
+    return state;
+  }
+
+  async prepare(request: TaskRequest): Promise<TaskQuotePreview> {
+    return this.withLock(async () => {
+      const state = await this.prepared(request);
+      return {
+        quoteId: state.quote.quoteId,
+        payloadHash: state.quote.payloadHash,
+        summary: state.quote.summary,
+        pricing: state.quote.pricing,
+        expiresAt: state.quote.expiresAt,
+      };
+    });
+  }
+
+  async purchase(request: TaskRequest): Promise<TaskPurchaseResult> {
+    return this.withLock(() => this.locked(request));
+  }
+
+  private async locked(request: TaskRequest): Promise<TaskPurchaseResult> {
+    let state = await this.prepared(request);
     const { required, accepted } = validateQuote(
       state.quote,
       state.requiredHeader,
@@ -355,4 +402,291 @@ export function taskClientWithCircle(
     ...options,
     signTypedData: (typedData) => wallet.signTypedData(typedData, approvePurchase),
   });
+}
+
+export type ArcPaymentIntent = {
+  intent: string;
+  reference: string;
+  sender: string;
+  recipient: string;
+  amountUsdc: string;
+  maxGasUnits?: number;
+};
+
+export type ArcTransferPlan = {
+  chainId: typeof ARC_TESTNET_CHAIN_ID;
+  sender: `0x${string}`;
+  recipient: `0x${string}`;
+  amountUsdc: string;
+  amountWei: string;
+  reference: string;
+  artifactHash: string;
+  buildDigest: string;
+  expiresAt: number;
+  simulation: Record<string, unknown>;
+  summary: Record<string, unknown>;
+};
+
+export type ArcExecutionResult = {
+  servicePurchaseReceipt: unknown;
+  circle: CircleTransferResult;
+  receipt: ArcReceipt;
+  plan: ArcTransferPlan;
+};
+
+export type ArcExecutionKitOptions = Omit<TaskClientOptions, "payer" | "signTypedData"> & {
+  wallet: CircleArcWallet;
+  rpcUrl: string;
+  rpcFetch?: typeof fetch;
+};
+
+function object(value: unknown, name: string): Record<string, any> {
+  requireThat(Boolean(value) && typeof value === "object" && !Array.isArray(value), `${name} must be an object`);
+  return value as Record<string, any>;
+}
+
+function usdcWei(value: string): string {
+  requireThat(/^(0|[1-9][0-9]*)(\.[0-9]{1,6})?$/.test(value), "USDC amount must have at most six decimals");
+  const [whole, fraction = ""] = value.split(".");
+  const wei = BigInt(whole) * 10n ** 18n + BigInt(fraction.padEnd(18, "0"));
+  requireThat(wei > 0n, "USDC amount must be positive");
+  return wei.toString();
+}
+
+function exactWei(value: unknown): bigint {
+  requireThat(typeof value === "string" && (/^(0|[1-9][0-9]*)$/.test(value) || /^0x[0-9a-f]+$/i.test(value)), "Invalid transaction value");
+  return BigInt(value);
+}
+
+export function parseArcTransferArtifact(
+  bytes: Buffer,
+  request: TaskRequest,
+  quote: TaskQuotePreview,
+  amountUsdc: string,
+  now = Math.floor(Date.now() / 1_000),
+  reference = "task-artifact",
+): ArcTransferPlan {
+  let artifact: Record<string, any>;
+  try {
+    artifact = object(JSON.parse(bytes.toString("utf8")), "Task artifact");
+  } catch (error) {
+    throw new Error(`Task artifact is not valid JSON: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  const build = object(artifact.build, "Task build");
+  const report = object(artifact.report, "Task report");
+  const summary = object(artifact.summary, "Task summary");
+  requireThat(stable(summary) === stable(quote.summary), "Paid artifact summary differs from the attested quote preview");
+  requireThat(build.version === 2 && build.status === "simulated", "Task build is not a supported simulated Build");
+  requireThat(Number.isSafeInteger(build.expiresAt) && build.expiresAt > now + 15, "Task build has expired or expires too soon");
+  requireThat(typeof build.digest === "string" && /^[0-9a-f]{64}$/i.test(build.digest), "Task build digest is invalid");
+  requireThat(Array.isArray(build.actions) && build.actions.length === 1, "Execution Kit V1 requires exactly one action");
+  const action = object(build.actions[0], "Task action");
+  const sender = address(request.sender) as `0x${string}`;
+  const targets = ((request.constraints as Record<string, unknown> | undefined)?.allowedTargets ?? []) as unknown[];
+  requireThat(targets.length === 1, "Execution Kit V1 requires one explicit allowed target");
+  const recipient = address(targets[0]) as `0x${string}`;
+  const amountWei = usdcWei(amountUsdc);
+  requireThat(
+    action.chain_id === ARC_TESTNET_CHAIN_ID && address(action.from) === sender && address(action.to) === recipient &&
+    exactWei(action.value ?? "0") === BigInt(amountWei) && action.data === "0x" && action.kind === "native_transfer",
+    "Task action does not match the bounded native-USDC transfer",
+  );
+  requireThat(build.simulation?.status === "passed", "Build simulation did not pass");
+  requireThat(Array.isArray(summary.approvals) && summary.approvals.length === 0, "V1 does not execute token approvals");
+  requireThat(summary.actionCount === 1 && summary.source?.chainId === ARC_TESTNET_CHAIN_ID, "Task summary does not describe one Arc Testnet action");
+  requireThat(summary.outgoingUsdcWei === amountWei, "Task summary outflow differs from the approved amount");
+  requireThat(Array.isArray(summary.constraints) && summary.constraints.every((item: any) => item?.status === "passed"), "A Task constraint did not pass");
+  requireThat(Array.isArray(report.contexts) && report.contexts.length === 1, "Task report requires one Arc simulation context");
+  const context = object(report.contexts[0], "Simulation context");
+  requireThat(context.chain_id === ARC_TESTNET_CHAIN_ID && address(context.sender) === sender && Array.isArray(context.balance_overrides) && context.balance_overrides.length === 0, "Simulation context does not match the reviewed sender and chain");
+  requireThat(Array.isArray(report.steps) && report.steps.length === 1, "Task report requires one successful step");
+  const step = object(report.steps[0], "Simulation step");
+  const call = object(step.call, "Simulation call");
+  requireThat(
+    step.chain_id === ARC_TESTNET_CHAIN_ID && step.execution?.status === "succeeded" && address(call.to) === recipient &&
+    exactWei(call.value) === BigInt(amountWei) && call.data === "0x",
+    "Simulation evidence differs from the reviewed transfer",
+  );
+  return {
+    chainId: ARC_TESTNET_CHAIN_ID,
+    sender,
+    recipient,
+    amountUsdc,
+    amountWei,
+    reference,
+    artifactHash: quote.payloadHash,
+    buildDigest: build.digest.toLowerCase(),
+    expiresAt: build.expiresAt,
+    simulation: build.simulation,
+    summary,
+  };
+}
+
+export class ArcPurchasedArtifact {
+  constructor(
+    readonly plan: ArcTransferPlan,
+    readonly servicePurchaseReceipt: unknown,
+    private readonly wallet: CircleArcWallet,
+    private readonly rpcUrl: string,
+    private readonly stateDirectory: string,
+    private readonly rpcFetch: typeof fetch = fetch,
+  ) {}
+
+  async execute(confirm: (review: CircleCommandReview) => boolean | Promise<boolean>): Promise<ArcExecutionResult> {
+    const lock = path.join(this.stateDirectory, "execution-lock");
+    await mkdir(lock, { mode: 0o700 });
+    try {
+      return await this.executeLocked(confirm);
+    } finally {
+      await rmdir(lock);
+    }
+  }
+
+  private async saveExecution(state: Record<string, unknown>) {
+    const file = path.join(this.stateDirectory, "execution.json");
+    const temporary = `${file}.${randomUUID()}`;
+    const handle = await open(temporary, "wx", 0o600);
+    try {
+      await handle.writeFile(JSON.stringify(state));
+      await handle.sync();
+    } finally {
+      await handle.close();
+    }
+    await rename(temporary, file);
+  }
+
+  private async executeLocked(confirm: (review: CircleCommandReview) => boolean | Promise<boolean>): Promise<ArcExecutionResult> {
+    const file = path.join(this.stateDirectory, "execution.json");
+    let state: Record<string, any>;
+    try {
+      const info = await lstat(file);
+      requireThat(info.isFile() && !info.isSymbolicLink() && (info.mode & 0o077) === 0, "Execution journal must be a private regular file");
+      state = JSON.parse(await readFile(file, "utf8"));
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      state = {
+        version: 1,
+        artifactHash: this.plan.artifactHash,
+        plan: this.plan,
+        servicePurchaseReceipt: this.servicePurchaseReceipt,
+        idempotencyKey: `task-${this.plan.artifactHash.slice(0, 32)}`,
+        phase: "prepared",
+      };
+      await this.saveExecution(state);
+    }
+    requireThat(state.artifactHash === this.plan.artifactHash && stable(state.plan) === stable(this.plan), "Execution journal belongs to a different Task artifact");
+    if (state.phase === "complete") {
+      requireThat(state.circle?.transactionHash === state.receipt?.transactionHash, "Stored Circle and Arc records do not correlate");
+      return { servicePurchaseReceipt: state.servicePurchaseReceipt, circle: state.circle, receipt: state.receipt, plan: this.plan };
+    }
+    const transfer = {
+      chainId: ARC_TESTNET_CHAIN_ID,
+      recipient: this.plan.recipient,
+      amountUsdc: this.plan.amountUsdc,
+      invoiceId: this.plan.reference,
+      idempotencyKey: state.idempotencyKey,
+    } as const;
+    let circle = state.circle as CircleTransferResult | undefined;
+    if (!circle) {
+      const review = this.wallet.reviewTransfer(transfer);
+      if (!(await confirm(review))) throw new Error("Circle wallet transfer rejected by the reviewer");
+      state.phase = "submission_pending";
+      await this.saveExecution(state);
+      circle = await this.wallet.transfer(transfer, () => true);
+      state.circle = circle;
+      state.phase = "circle_submitted";
+      await this.saveExecution(state);
+    }
+    if (circle.transactionId && !circle.transactionHash) {
+      circle = await this.wallet.waitForConfirmation(circle.transactionId);
+      state.circle = circle;
+      state.phase = "circle_confirmed";
+      await this.saveExecution(state);
+    }
+    requireThat(circle.transactionHash, "Circle did not return a confirmed Arc transaction hash");
+    const receipt = await verifyArcTransferReceipt(circle.transactionHash, this.rpcUrl, {
+      from: this.plan.sender,
+      to: this.plan.recipient,
+      valueWei: this.plan.amountWei,
+    }, this.rpcFetch);
+    state.receipt = receipt;
+    state.phase = "complete";
+    await this.saveExecution(state);
+    return { servicePurchaseReceipt: state.servicePurchaseReceipt, circle, receipt, plan: this.plan };
+  }
+}
+
+export class ArcExecutionQuote {
+  constructor(
+    readonly preview: TaskQuotePreview,
+    private readonly request: TaskRequest,
+    private readonly amountUsdc: string,
+    private readonly reference: string,
+    private readonly client: TaskClient,
+    private readonly wallet: CircleArcWallet,
+    private readonly rpcUrl: string,
+    private readonly setPurchaseApproval: (approval?: (review: { title: string; typedData: unknown; walletAddress: string }) => boolean | Promise<boolean>) => void,
+    private readonly rpcFetch: typeof fetch = fetch,
+  ) {}
+
+  async purchase(confirm: (preview: TaskQuotePreview) => boolean | Promise<boolean>): Promise<ArcPurchasedArtifact | { status: "pending" }> {
+    if (!(await confirm(this.preview))) throw new Error("Aomi service purchase rejected by the reviewer");
+    this.setPurchaseApproval(() => true);
+    try {
+      const result = await this.client.purchase(this.request);
+      if (result.status === "pending") return result;
+      const plan = parseArcTransferArtifact(result.bytes, this.request, this.preview, this.amountUsdc, undefined, this.reference);
+      return new ArcPurchasedArtifact(plan, result.receipt, this.wallet, this.rpcUrl, this.client.options.stateDirectory, this.rpcFetch);
+    } finally {
+      this.setPurchaseApproval(undefined);
+    }
+  }
+}
+
+export class ArcExecutionKit {
+  private constructor(readonly options: ArcExecutionKitOptions) {}
+
+  static arcTestnet(options: ArcExecutionKitOptions) {
+    return new ArcExecutionKit(options);
+  }
+
+  async prepare(intent: ArcPaymentIntent): Promise<ArcExecutionQuote> {
+    requireThat(address(intent.sender) === address(this.options.wallet.walletAddress), "Circle wallet must be the selected sender");
+    requireThat(Boolean(intent.reference.trim()) && intent.reference.length <= 120, "A short payment reference is required");
+    const recipient = address(intent.recipient);
+    const amountWei = usdcWei(intent.amountUsdc);
+    const request: TaskRequest = {
+      intent: intent.intent,
+      chainId: ARC_TESTNET_CHAIN_ID,
+      sender: this.options.wallet.walletAddress,
+      payer: this.options.wallet.walletAddress,
+      constraints: {
+        maxOutgoingUsdcWei: amountWei,
+        maxGasUnits: intent.maxGasUnits ?? 100_000,
+        allowedTargets: [recipient],
+        minimumReceived: [],
+      },
+    };
+    let purchaseApproval: ((review: { title: string; typedData: unknown; walletAddress: string }) => boolean | Promise<boolean>) | undefined;
+    const client = new TaskClient({
+      ...this.options,
+      payer: this.options.wallet.walletAddress,
+      signTypedData: (typedData) => {
+        requireThat(purchaseApproval, "Purchase approval was not established");
+        return this.options.wallet.signTypedData(typedData, purchaseApproval);
+      },
+    });
+    const preview = await client.prepare(request);
+    return new ArcExecutionQuote(
+      preview,
+      request,
+      intent.amountUsdc,
+      intent.reference,
+      client,
+      this.options.wallet,
+      this.options.rpcUrl,
+      (approval) => { purchaseApproval = approval; },
+      this.options.rpcFetch,
+    );
+  }
 }

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { ARC_TESTNET_CHAIN_ID, CircleArcWallet, normalizeCircleTransferResult, verifyArcReceipt } from "./index.ts";
+import { ARC_TESTNET_CHAIN_ID, CircleArcWallet, normalizeCircleTransferResult, verifyArcReceipt, verifyArcTransferReceipt } from "./index.ts";
 
 const wallet = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const recipient = "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
@@ -95,3 +95,31 @@ test("verifies a successful receipt through an independent Arc RPC", async () =>
   });
   assert.equal(receipt.blockNumber, "0x2a");
 });
+
+test("binds the confirmed Arc transaction to the exact reviewed transfer", async () => {
+  const hash = `0x${"78".repeat(32)}`;
+  const calls: string[] = [];
+  const fetchImpl: typeof fetch = async (_url, init) => {
+    const method = JSON.parse(String(init?.body)).method;
+    calls.push(method);
+    if (method === "eth_getTransactionReceipt") {
+      return new Response(JSON.stringify({ result: { transactionHash: hash, blockNumber: "0x2b", status: "0x1" } }));
+    }
+    return new Response(JSON.stringify({ result: { hash, from: wallet, to: recipient, value: "0xde0b6b3a7640000", input: "0x" } }));
+  };
+  const receipt = await verifyArcTransferReceipt(hash, "https://rpc.example", {
+    from: wallet,
+    to: recipient,
+    valueWei: "1000000000000000000",
+  }, fetchImpl);
+  assert.equal(receipt.to, recipient);
+  assert.deepEqual(calls, ["eth_getTransactionReceipt", "eth_getTransactionByHash"]);
+  await assert.rejects(
+    verifyArcTransferReceipt(hash, "https://rpc.example", { from: wallet, to: payerAddress(), valueWei: "1000000000000000000" }, fetchImpl),
+    /does not match/,
+  );
+});
+
+function payerAddress() {
+  return "0xcccccccccccccccccccccccccccccccccccccccc";
+}

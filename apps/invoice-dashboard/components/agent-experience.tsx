@@ -160,8 +160,8 @@ function CircleReview() {
       ) : null}
       {result ? <pre className="result">{JSON.stringify(result, null, 2)}</pre> : null}
       <p className="fine-print">
-        This server route invokes the installed Circle CLI without a shell. It runs only after this
-        button confirms the exact recipient, amount, chain, and invoice idempotency key.
+        This loopback-only reference route invokes the installed Circle CLI without a shell. A
+        production app must place the adapter behind its own authenticated backend.
       </p>
     </section>
   );
