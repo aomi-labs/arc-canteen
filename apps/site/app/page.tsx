@@ -51,7 +51,7 @@ export default function Home() {
 
       <section className="runbook-section" id="agent">
         <div className="container section-grid">
-          <header className="section-index"><span>03</span><div><p className="eyebrow blue-text">Agent-in-a-Box · live</p><h2>Turn your APIs into an agent.</h2></div></header>
+          <header className="section-index"><span>03</span><div><p className="eyebrow blue-text">Agent-in-a-Box · live</p><h2>No agent yet? Your app needs an agentic workflow. Turn your API into automation.</h2></div></header>
           <div className="instruction-list">
             <div className="instruction"><b>01</b><div><strong>Expose your product API</strong><p>Implement the domain operations the agent needs, such as <code>get_invoice</code>, <code>get_vendor</code>, and <code>check_payment_status</code>.</p></div><span>Input: HTTPS API</span></div>
             <div className="instruction"><b>02</b><div><strong>Replace the fixture client</strong><p>Edit <code>templates/invoice-agent/src/client.rs</code> and keep deterministic money checks in code.</p></div><span>Output: typed tools</span></div>
