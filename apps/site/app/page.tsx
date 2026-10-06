@@ -17,7 +17,7 @@ export default function Home() {
         <div className="container runbook-hero-grid">
           <div>
             <p className="eyebrow">Tameion builder kit · Aomi × Arc</p>
-            <h1>Ship an Arc finance agent in 10 minutes.</h1>
+            <h1 className={styles.heroTitle}>Ship an Arc finance agent in 10 minutes.</h1>
             <p className="lede">Bring your product API. Aomi hosts the agent, calls your tools, and prepares reviewed actions for your Circle wallet.</p>
             <div className="actions"><Link className="button primary" href="/agent-in-a-box#watch-live">Watch the invoice agent live →</Link><Link className="button" href="#choose">Choose your path ↓</Link></div>
           </div>
