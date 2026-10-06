@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { CodeBlock } from "@/components/code-block";
+import { AgentDemoActions } from "@/components/agent-demo-actions";
 import { InvoiceAgentWidget } from "@/components/invoice-agent-widget";
 import { links } from "@/components/links";
 import { ExternalLink } from "@/components/site-shell";
@@ -45,7 +46,7 @@ export default function AgentInABox() {
       </div></section>
 
       <section className="runbook-section live-agent-section" id="watch-live"><div className="container section-grid">
-        <header className="section-index"><span>04</span><div><p className="eyebrow blue-text">Live · Application 2938640</p><h2>Watch it live.</h2><p className="live-agent-note">This invoice agent was built from the original Tameion RFB in one shot with agentic support. Ask it to pay <code>INV-1042</code>, <code>INV-1043</code>, or <code>INV-1044</code>.</p></div></header>
+        <header className="section-index"><span>04</span><div><p className="eyebrow blue-text">Live · Application 2938640</p><h2>Watch it live.</h2><p className="live-agent-note">This invoice agent was built from the original Tameion RFB in one shot with agentic support. Ask it to pay <code>INV-1042</code>, <code>INV-1043</code>, or <code>INV-1044</code>.</p><AgentDemoActions sourceUrl={links.invoiceAgent} /></div></header>
         <div><InvoiceAgentWidget /><div className="live-prompts" aria-label="Invoice prompts to try"><span>Try</span><code>Pay invoice INV-1042 if it is still safe.</code><code>Pay invoice INV-1043.</code><code>Pay invoice INV-1044.</code></div></div>
       </div></section>
 
