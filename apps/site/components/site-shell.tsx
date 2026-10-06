@@ -21,8 +21,11 @@ export function ExternalLink({ href, children, className = "" }: { href: string;
 }
 
 const nav = [
-  { label: "Products", href: "/#products" },
-  { label: "Demo", href: "/proof/pay-the-right-invoice" },
+  { label: "Start", href: "/#start" },
+  { label: "Choose", href: "/#choose" },
+  { label: "Agent", href: "/agent-in-a-box" },
+  { label: "Execution", href: "/execution-kit" },
+  { label: "Proof", href: "/proof/pay-the-right-invoice" },
   { label: "Reference", href: "/reference" },
 ];
 
