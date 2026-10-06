@@ -9,6 +9,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@aomi-labs/widget-lib": "3.0.10",
+    "@arc-canteen/invoice-workflow": "workspace:*",
     "next": "16.1.0",
     "react": "19.2.7",
     "react-dom": "19.2.7"

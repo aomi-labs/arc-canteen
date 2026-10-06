@@ -10,7 +10,7 @@ The product and site decisions are recorded in the closed Wayfinder map, [Wayfin
 ## Live surfaces
 
 - Product site: <https://arc-canteen.aomi.dev>
-- Invoice dashboard and fixture API: <https://arc-invoice-agent.vercel.app>
+- Live invoice agent: <https://arc-canteen.aomi.dev/agent-in-a-box#watch-live>
 - Hosted invoice agent: Aomi Application `2938640`
 - Aomi Build handoff: <https://build.aomi.dev>
 
