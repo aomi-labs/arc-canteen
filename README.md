@@ -31,6 +31,20 @@ The site runs on port 3000. The invoice dashboard runs on port 3001 with `pnpm d
 
 Copy `apps/invoice-dashboard/.env.example` to `.env.local` to connect a deployed Aomi App. Live wallet execution additionally needs an authenticated Circle CLI, a wallet address, and an Arc Testnet RPC URL. Never put wallet credentials in this repository.
 
+## Deploy
+
+The root `.aomi/config.json` registers `templates/invoice-agent/aomi.toml` as the community Project application. Connect and deploy the repository through [Aomi Build](https://build.aomi.dev); do not copy the app into a second platform repository.
+
+The invoice dashboard is a separate Vercel project from the product site. Deploy it from the repository root so pnpm workspace dependencies are available:
+
+```bash
+./scripts/deploy-invoice-dashboard.sh
+```
+
+The script deploys an archive of the current commit, swaps in the dashboard-specific Vercel config inside an isolated temporary directory, and records the source commit in deployment metadata. It never uploads local build output or uncommitted files.
+
+Set `NEXT_PUBLIC_AOMI_APPLICATION_ID` only after Aomi Build has activated the invoice agent. The public deployment intentionally cannot invoke the local Circle CLI signer route.
+
 ## Status and trust boundaries
 
 - **Execution Kit: Preview.** The client implements the expected `/v1/task/build` validation and recovery contract, but Aomi does not currently expose a confirmed public hosted Task endpoint. Do not present it as live until that endpoint passes the proof manifest gates.

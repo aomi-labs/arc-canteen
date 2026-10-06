@@ -3,6 +3,12 @@ use aomi_sdk::*;
 mod client;
 mod tool;
 
+pub(crate) const INVOICE_API_BASE_URL: Secret = Secret::new(
+    "INVOICE_API_BASE_URL",
+    "HTTPS base URL of the builder's invoice application API, including its /api prefix.",
+    true,
+);
+
 const PREAMBLE: &str = r#"## Role
 You are the invoice operations agent inside an Arc application.
 
@@ -33,5 +39,36 @@ dyn_aomi_app!(
         client::PrepareInvoicePayment,
         client::MarkInvoicePaid,
     ],
+    secrets = [INVOICE_API_BASE_URL],
     namespaces = []
 );
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn manifest_declares_runtime_configuration_and_strict_tool_schemas() {
+        let manifest = client::InvoiceAgent.manifest();
+        let secrets = manifest.secrets.expect("invoice API URL slot");
+
+        assert_eq!(secrets.len(), 1);
+        assert_eq!(secrets[0].name, "INVOICE_API_BASE_URL");
+        assert!(secrets[0].required);
+        assert!(!secrets[0].user_own);
+
+        for tool in manifest.tools {
+            let schema = tool.parameters_schema;
+            if schema.get("type").and_then(serde_json::Value::as_str) == Some("object") {
+                assert!(
+                    schema
+                        .get("properties")
+                        .and_then(serde_json::Value::as_object)
+                        .is_some(),
+                    "tool {} must declare object properties",
+                    tool.name
+                );
+            }
+        }
+    }
+}
