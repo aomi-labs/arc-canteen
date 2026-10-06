@@ -8,12 +8,6 @@ const paths = [
   { have: "Product APIs, but no agent", use: "Arc Agent-in-a-Box", action: "Deploy the invoice starter", status: "Live", href: "/agent-in-a-box", tone: "blue" },
 ];
 
-const proof = [
-  ["INV-1042", "Approved", "Prepare for wallet review", "pass"],
-  ["INV-1043", "Address changed", "Refuse before signing", "refuse"],
-  ["INV-1044", "Already paid", "Refuse duplicate payment", "refuse"],
-];
-
 export default function Home() {
   return (
     <>
@@ -55,21 +49,14 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="runbook-section proof-runbook" id="proof">
-        <div className="container section-grid">
-          <header className="section-index"><span>03</span><div><p className="eyebrow">Verify the boundary</p><h2>One approval. Two deliberate refusals.</h2></div></header>
-          <div><div className="proof-table">{proof.map(([id, state, result, status]) => <div className="proof-row" key={id}><code>{id}</code><span>{state}</span><strong>{result}</strong><b className={status}>{status === "pass" ? "ALLOW" : "REFUSE"}</b></div>)}</div><div className="actions compact-actions"><ExternalLink className="button primary" href={links.invoiceDashboardLive}>Run all three cases ↗</ExternalLink></div></div>
-        </div>
-      </section>
-
       <section className="agent-handoff" id="agent-prompt">
         <div className="container section-grid">
-          <header className="section-index"><span>04</span><div><p className="eyebrow">Give this to your coding agent</p><h2>Start from a complete implementation brief.</h2></div></header>
+          <header className="section-index"><span>03</span><div><p className="eyebrow">Give this to your coding agent</p><h2>Start from a complete implementation brief.</h2></div></header>
           <CodeBlock label="COPYABLE BRIEF">{"Add the Arc Agent-in-a-Box starter to my application.\n\nMy API documentation: [URL]\nRequired operations: [LIST]\n\nImplement typed Aomi tools for those operations, keep deterministic\nmoney checks in code, deploy through Aomi Build, and embed the returned\nApplication ID with @aomi-labs/client. Keep Circle Wallet signing behind\nexplicit review. Verify one approved action and at least two refusal cases.\n\nSource: https://github.com/aomi-labs/arc-canteen"}</CodeBlock>
         </div>
       </section>
 
-      <section className="resource-strip"><div className="container resource-table"><span>05 · Reference</span><ExternalLink href={links.invoiceAgent}>Agent template ↗</ExternalLink><ExternalLink href={links.buildDocs}>Aomi Build ↗</ExternalLink><ExternalLink href={links.agentDocs}>Agent API ↗</ExternalLink><ExternalLink href={links.tameion}>Tameion ↗</ExternalLink></div></section>
+      <section className="resource-strip"><div className="container resource-table"><span>04 · Reference</span><ExternalLink href={links.invoiceAgent}>Agent template ↗</ExternalLink><ExternalLink href={links.buildDocs}>Aomi Build ↗</ExternalLink><ExternalLink href={links.agentDocs}>Agent API ↗</ExternalLink><ExternalLink href={links.tameion}>Tameion ↗</ExternalLink></div></section>
     </>
   );
 }
