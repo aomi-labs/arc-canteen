@@ -19,7 +19,7 @@ await page("/", /Need AI support/);
 await page("/execution-kit", /Aomi [×x] Circle/);
 await page("/agent-in-a-box", /Agent-in-a-Box/);
 await page("/proof/pay-the-right-invoice", /Pay the right invoice/);
-await page("/examples/invoice-dashboard", /Dashboard and fixture API are live/);
+await page("/examples/invoice-dashboard", /Hosted agent chat is live/);
 
 const dashboard = await response("/", { dashboard: true });
 assert.match(await dashboard.text(), /Invoice Agent/);
