@@ -11,6 +11,7 @@ export function ExternalLink({ href, children, className = "" }: { href: string;
 const nav = [
   { label: "Start", href: "/#start" },
   { label: "Agent", href: "/agent-in-a-box" },
+  { label: "Fuzz", href: "/fuzz" },
   { label: "Execution", href: "/execution-kit" },
   { label: "Reference", href: "/reference" },
 ];
@@ -40,7 +41,7 @@ export function SiteFooter() {
     <footer className="site-footer">
       <div className="container footer-grid">
         <div><strong>Aomi × Arc</strong><p>Builder infrastructure for agentic finance on Arc.</p></div>
-        <div><Link href="/execution-kit">Execution Kit</Link><Link href="/agent-in-a-box">Agent-in-a-Box</Link></div>
+        <div><Link href="/execution-kit">Execution Kit</Link><Link href="/agent-in-a-box">Agent-in-a-Box</Link><Link href="/fuzz">Aomi Fuzz</Link></div>
         <div><ExternalLink href={links.tameion}>Tameion Hackathon ↗</ExternalLink><ExternalLink href={links.github}>Source ↗</ExternalLink></div>
       </div>
     </footer>

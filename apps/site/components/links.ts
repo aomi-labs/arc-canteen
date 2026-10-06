@@ -5,6 +5,8 @@ export const links = {
   agentDocs: "https://aomi.dev/docs/integrate/agent",
   build: "https://build.aomi.dev",
   tameion: "https://tameion.thecanteenapp.com",
+  arcStudioFuzz: "https://arc-studio-fuzz.vercel.app",
+  arcStudioFuzzSource: "https://github.com/aomi-labs/arc-studio-fuzz",
   taskClient: "https://github.com/aomi-labs/arc-canteen/tree/main/packages/task-client",
   invoiceAgentWidget: "https://github.com/aomi-labs/arc-canteen/blob/main/apps/site/components/invoice-agent-widget.tsx",
   invoiceAgent: "https://github.com/aomi-labs/arc-canteen/tree/main/templates/invoice-agent",
