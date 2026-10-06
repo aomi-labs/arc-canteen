@@ -1,7 +1,7 @@
 {
   "schemaVersion": 3,
-  "testedAt": "2026-10-06T11:07:44Z",
-  "sourceCommit": "95aa673270b168dc0ab73c05c0bb5efec6445fa4",
+  "testedAt": "2026-10-06T11:39:00Z",
+  "sourceCommit": "87f98021b6ae7322134a79c9ec7ae684af4ca971",
   "network": {
     "name": "Arc Testnet",
     "chainId": 5042002
@@ -11,7 +11,7 @@
     "circleArcWallet": "0.1.0",
     "invoiceAgent": "0.1.0",
     "aomiSdk": "5.1.1",
-    "aomiReact": "0.7.5",
+    "aomiClient": "0.9.4",
     "circleCliObserved": "1.1.4"
   },
   "production": {
@@ -22,12 +22,14 @@
     },
     "invoiceDashboard": {
       "url": "https://arc-invoice-agent.vercel.app",
-      "deploymentId": "dpl_9UrKdPw5F4tot49rrxjsC2xEbcav",
+      "deploymentId": "dpl_Htb7h51L2iRZfaBqU2ja1sUQZQFv",
       "status": "ready-public"
     }
   },
   "liveIdentifiers": {
-    "aomiApplicationId": null,
+    "aomiProjectId": 1686,
+    "aomiApplicationId": 2938640,
+    "aomiDeploymentId": "dep_139189936_rb6c0795111_dbe6670eb2cc",
     "circleTransactionId": null,
     "arcTransactionHash": null,
     "arcExplorerUrl": null
@@ -92,8 +94,12 @@
       "evidence": "No confirmed public hosted /v1/task/build endpoint. The Execution Kit remains Preview."
     },
     "deployedAomiApplication": {
-      "status": "unverified",
-      "evidence": "No deployment was performed and no Application ID has been issued for this proof."
+      "status": "verified-production",
+      "evidence": "Aomi Build project 1686 activated Application 2938640. Deployment dep_139189936_rb6c0795111_dbe6670eb2cc passed Validate, Build, Publish, Activate, Verify runtime, and Live in community-apps run 37455109128."
+    },
+    "hostedAgentApiSession": {
+      "status": "verified-production",
+      "evidence": "The public dashboard used the direct @aomi-labs/client accessor against Application 2938640 in one persistent session: INV-1042 reached exact wallet review, INV-1043 refused the changed address, and INV-1044 refused the duplicate payment with zero browser warnings or errors."
     },
     "circleWalletExecution": {
       "status": "unverified",

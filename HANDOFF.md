@@ -11,18 +11,16 @@ The product and site decisions are recorded in the closed Wayfinder map, [Wayfin
 
 - Product site: <https://arc-canteen.aomi.dev>
 - Invoice dashboard and fixture API: <https://arc-invoice-agent.vercel.app>
+- Hosted invoice agent: Aomi Application `2938640`
 - Aomi Build handoff: <https://build.aomi.dev>
 
 Run `pnpm check:production` to verify the public product pages, invoice API decisions, refusal cases, and the public signer's fail-closed boundary.
 
 ## Remaining live gates
 
-1. Connect this repository to Aomi Build, deploy and activate `templates/invoice-agent`, and record the issued Application ID.
-2. Configure the hosted app's `INVOICE_API_BASE_URL` secret slot with `https://arc-invoice-agent.vercel.app/api`.
-3. Set `NEXT_PUBLIC_AOMI_APPLICATION_ID` on the invoice-dashboard Vercel project and redeploy it.
-4. Complete a real Agent API session that approves `INV-1042` and refuses `INV-1043` or `INV-1044`.
-5. With an authenticated and funded Circle Agent Wallet, explicitly review and sign the approved 1 test-USDC transfer on Arc Testnet.
-6. Independently verify the Arc receipt, correlate the Aomi, Circle, and Arc identifiers, and update the proof bundle.
-7. Have a non-author reproduce the documented path before changing the public claim to Builder-ready.
+1. Expose and verify the hosted `/v1/task/build` seam before moving the Aomi × Circle Execution Kit beyond Preview.
+2. With an authenticated and funded Circle Agent Wallet, explicitly review and sign the approved 1 test-USDC transfer on Arc Testnet.
+3. Independently verify the Arc receipt, correlate the Aomi, Circle, and Arc identifiers, and update the proof bundle.
+4. Have a non-author reproduce the documented path before changing the public claim to Builder-ready.
 
 Do not mark a live gate complete from a build, mock, HTTP 200, transaction submission, or example identifier. Never commit access tokens, wallet credentials, private keys, or session material.
