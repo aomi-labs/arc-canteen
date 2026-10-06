@@ -52,7 +52,7 @@ export function HowItWorks({ diagram }: { diagram: Diagram }) {
   );
 }
 
-function ExecutionSequence() {
+export function ExecutionSequence() {
   return (
     <div className={styles.sequence}>
       <div className={styles.sequenceViewport}>
