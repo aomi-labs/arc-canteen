@@ -13,6 +13,7 @@ export const links = {
   taskClient: "https://github.com/aomi-labs/arc-canteen/tree/6140e73377ad000f117a64eda2e34e5062139953/packages/task-client",
   invoiceAgent: "https://github.com/aomi-labs/arc-canteen/tree/6140e73377ad000f117a64eda2e34e5062139953/templates/invoice-agent",
   invoiceDashboard: "https://github.com/aomi-labs/arc-canteen/tree/6140e73377ad000f117a64eda2e34e5062139953/apps/invoice-dashboard",
+  invoiceDashboardLive: "https://arc-invoice-agent.vercel.app",
 };
 
 export function ExternalLink({ href, children, className = "" }: { href: string; children: React.ReactNode; className?: string }) {

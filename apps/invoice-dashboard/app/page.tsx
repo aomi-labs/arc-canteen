@@ -4,7 +4,7 @@ export default function Page() {
   return (
     <main>
       <header className="topbar">
-        <a href="https://arc-canteen.vercel.app">Aomi × Arc</a>
+        <a href="https://arc-canteen.aomi.dev">Aomi × Arc</a>
         <span>Invoice Agent reference app</span>
       </header>
       <section className="hero">
