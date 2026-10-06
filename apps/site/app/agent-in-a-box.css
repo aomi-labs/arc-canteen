@@ -27,7 +27,7 @@
 .rfb-columns ul { margin: 0; padding-left: 18px; }
 .rfb-columns li { margin: 5px 0; }
 .rfb-built { padding: 13px 15px; border-left: 3px solid var(--blue); background: var(--blue-soft); color: var(--ink); margin: 20px 0; }
-.agent-flow-dialog { width: min(960px, calc(100% - 32px)); max-width: none; padding: 0; border: 1px solid var(--ink); background: var(--paper); color: var(--ink); }
+.agent-flow-dialog { position: fixed; top: 50%; left: 50%; margin: 0; transform: translate(-50%, -50%); width: min(960px, calc(100% - 32px)); max-width: none; padding: 0; border: 1px solid var(--ink); background: var(--paper); color: var(--ink); }
 .agent-flow-dialog::backdrop { background: rgba(23, 17, 13, .72); backdrop-filter: blur(4px); }
 .agent-flow-panel { padding: 24px; }
 .agent-flow-panel > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; margin-bottom: 20px; }
