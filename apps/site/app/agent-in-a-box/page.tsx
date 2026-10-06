@@ -1,13 +1,47 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { CodeBlock } from "@/components/code-block";
 import { ExternalLink, links } from "@/components/site-shell";
 
 export const metadata: Metadata = { title: "Arc Agent-in-a-Box" };
 
+const embed = `import { Aomi } from "@aomi-labs/client";
+
+const aomi = new Aomi({ baseUrl: "https://chat.aomi.dev" });
+
+const run = aomi.agent.run(prompt, {
+  target: { mode: "direct", applicationId: 2938640 },
+});`;
+
 export default function AgentInABox() {
-  return <>
-    <section className="page-hero"><div className="container"><p className="eyebrow">Item 2 · build the intelligence</p><h1>Arc Agent-<br />in-a-Box</h1><p className="lede">A builder starter for turning your product APIs into an Arc-native finance agent—without recreating Aomi Build.</p><div className="status-banner"><strong>Live hosted example.</strong> Application 2938640 calls the included invoice APIs through Aomi’s hosted runtime, and the public dashboard embeds it through the direct Agent API client. Circle signing remains an explicit builder-owned step.</div></div></section>
-    <section className="section"><div className="container content-grid"><div><p className="eyebrow">What builders own</p><h2>Your APIs are the agent’s operating context.</h2></div><div><div className="steps"><div className="step"><strong>Expose app-specific tools</strong>Replace the fixture clients with endpoints such as <code>get_invoice</code>, <code>get_vendor</code>, and <code>check_payment_status</code>.</div><div className="step"><strong>Encode the business rule</strong>The included agent re-fetches state and refuses changed vendor addresses, already-paid invoices, and unapproved invoices.</div><div className="step"><strong>Use Aomi’s build path</strong>Deploy the Aomi App through the existing build platform and receive an Application ID. This repo does not fork the platform.</div><div className="step"><strong>Embed the agent</strong>The dashboard calls <code>@aomi-labs/client</code> directly with the hosted Application ID, so the assistant fits inside the builder’s own product UX without importing a chat framework.</div><div className="step"><strong>Review before signing</strong>The hosted agent reads and reasons over app state. The host keeps the exact Arc payment behind deterministic checks and an explicit Circle wallet review.</div></div></div></div></section>
-    <section className="section demo-strip"><div className="container demo-grid"><div><p className="eyebrow">Starter included</p><h2>Invoice APIs, agent tools, dashboard, and execution review.</h2></div><div><p>Clone the Tameion template, replace the fixture API client with your product, and hand deployment to the existing Aomi Build lifecycle.</p><ExternalLink className="button light" href={links.invoiceAgent}>Open the starter ↗</ExternalLink> <ExternalLink className="button light" href={links.build}>Deploy with Aomi Build ↗</ExternalLink> <Link className="button light" href="/examples/invoice-dashboard">Integrate the dashboard</Link></div></div></section>
-  </>;
+  return (
+    <>
+      <section className="compact-hero">
+        <div className="container compact-hero-grid">
+          <div><p className="eyebrow blue-text">02 · Agent-in-a-Box</p><h1>Build the agent your Arc app needs.</h1><p className="lede">Connect your product APIs to a hosted Aomi App, embed it in your interface, and keep Circle signing under explicit wallet control.</p></div>
+          <dl className="status-panel"><div><dt>Status</dt><dd><i /> Live starter</dd></div><div><dt>Application</dt><dd>2938640</dd></div><div><dt>Proof</dt><dd>3 invoice cases</dd></div><div><dt>Settlement</dt><dd>Builder-owned</dd></div></dl>
+        </div>
+      </section>
+
+      <section className="runbook-section"><div className="container section-grid">
+        <header className="section-index"><span>01</span><div><p className="eyebrow">Prepare</p><h2>Give the agent your domain operations.</h2></div></header>
+        <div><CodeBlock label="REPOSITORY">{"git clone https://github.com/aomi-labs/arc-canteen\ncd arc-canteen/templates/invoice-agent"}</CodeBlock><div className="facts compact-facts"><div className="fact"><strong>Change</strong><span><code>src/client.rs</code> — call your real APIs.</span></div><div className="fact"><strong>Keep</strong><span><code>src/tool.rs</code> — deterministic approval and refusal rules.</span></div><div className="fact"><strong>Configure</strong><span><code>INVOICE_API_BASE_URL</code> — your HTTPS service.</span></div><div className="fact"><strong>Verify</strong><span><code>cargo test</code> — approved and refusal cases.</span></div></div></div>
+      </div></section>
+
+      <section className="runbook-section"><div className="container section-grid">
+        <header className="section-index"><span>02</span><div><p className="eyebrow">Deploy</p><h2>Use the existing Aomi Build lifecycle.</h2></div></header>
+        <div className="instruction-list"><div className="instruction"><b>01</b><div><strong>Connect the repository</strong><p>Open Aomi Build and select the included <code>aomi.toml</code>.</p></div><ExternalLink href={links.build}>Open Build ↗</ExternalLink></div><div className="instruction"><b>02</b><div><strong>Add the API base URL</strong><p>Set the one required secret to an HTTPS API implementing your tools.</p></div><span>INVOICE_API_BASE_URL</span></div><div className="instruction"><b>03</b><div><strong>Build and activate</strong><p>The activation result gives your frontend an Application ID.</p></div><span>Output: applicationId</span></div></div>
+      </div></section>
+
+      <section className="runbook-section"><div className="container section-grid">
+        <header className="section-index"><span>03</span><div><p className="eyebrow">Embed</p><h2>Call the hosted agent from your product.</h2></div></header>
+        <div><CodeBlock label="FRONTEND">{embed}</CodeBlock><p className="inline-note"><strong>Boundary:</strong> the agent may read, reason, and prepare. Your authenticated backend owns Circle wallet review and signing.</p></div>
+      </div></section>
+
+      <section className="runbook-section proof-runbook"><div className="container section-grid">
+        <header className="section-index"><span>04</span><div><p className="eyebrow">Verify</p><h2>Exercise the live acceptance cases.</h2></div></header>
+        <div className="instruction-list"><div className="instruction"><b>✓</b><div><strong>Pay invoice INV-1042</strong><p>Expected: prepare one USDC payment for wallet review.</p></div><span>ALLOW</span></div><div className="instruction"><b>×</b><div><strong>Pay invoice INV-1043</strong><p>Expected: refuse because the vendor address changed.</p></div><span>REFUSE</span></div><div className="instruction"><b>×</b><div><strong>Pay invoice INV-1044</strong><p>Expected: refuse because payment is already confirmed.</p></div><span>REFUSE</span></div><div className="actions compact-actions"><ExternalLink className="button primary" href={links.invoiceDashboardLive}>Run live proof ↗</ExternalLink><ExternalLink className="button" href={links.invoiceAgent}>Open template source ↗</ExternalLink><Link className="button" href="/examples/invoice-dashboard">Dashboard integration</Link></div></div>
+      </div></section>
+    </>
+  );
 }
