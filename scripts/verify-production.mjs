@@ -18,6 +18,7 @@ await page("/", /Ship an Arc finance agent in 10 minutes/);
 await page("/execution-kit", /Aomi [×x] Circle/);
 await page("/agent-in-a-box", /Watch it live/);
 await page("/agent-in-a-box", /Tameion RFB 02/);
+await page("/fuzz", /Break the contract before users do/);
 await page("/examples/invoice-dashboard", /Watch it live/);
 await response("/proof/pay-the-right-invoice", { status: 404 });
 
@@ -26,7 +27,8 @@ assert.match(home, /href="\/agent-in-a-box#watch-live"/, "live agent CTA lost it
 assert.match(home, /href="https:\/\/aomi\.dev\/docs\/build"/, "Aomi Build reference lost its href");
 
 const agentInABox = await (await response("/agent-in-a-box")).text();
-assert.match(agentInABox, />Source Code ↗</, "invoice-agent source CTA is missing");
+assert.match(agentInABox, />Widget Source Code ↗</, "widget source CTA is missing");
+assert.match(agentInABox, />App Source Code ↗</, "invoice-agent source CTA is missing");
 assert.match(agentInABox, />How it works</, "request-lifecycle CTA is missing");
 assert.match(
   agentInABox,
@@ -48,6 +50,10 @@ for (const section of executionSections) {
   previousSection = position;
 }
 assert.match(executionKit, /ArcExecutionKit\.arcTestnet/, "complete Execution Kit integration is missing");
+
+const fuzz = await (await response("/fuzz")).text();
+assert.match(fuzz, /href="https:\/\/arc-studio-fuzz\.vercel\.app\/?"/, "live fuzzer CTA lost its href");
+assert.match(fuzz, /Two clean replays/, "fuzzer verification standard is missing");
 
 const invoice = await (await response("/api/invoices/INV-1042")).json();
 assert.deepEqual(
@@ -86,7 +92,7 @@ console.log(JSON.stringify({
   status: "verified",
   siteUrl,
   checks: {
-    productPages: 4,
+    productPages: 5,
     integratedAgentPage: true,
     agentDemoActions: true,
     executionKitJourney: true,
