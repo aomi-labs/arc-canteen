@@ -26,8 +26,10 @@ main { min-height: 100vh; }
 .panel h2 { font: 600 28px/1.1 Georgia, serif; margin: 6px 0 0; }
 .status { border: 1px solid var(--line); border-radius: 999px; padding: 4px 9px; font-size: 11px; text-transform: uppercase; }
 .status.ready { color: var(--green); }.status.running, .status.preview { color: #ffd37a; }
+.agent-error { margin: 0; border: 1px solid #7e3340; background: #2a1116; color: #ffb7c0; padding: 12px 14px; font-size: 13px; }
 .messages { min-height: 330px; max-height: 480px; overflow: auto; border: 1px solid var(--line); background: #0d0d0f; padding: 16px; }
 .message { border-bottom: 1px solid #242428; padding: 12px 0; }.message:last-child { border: 0; }
+.message-sender { display: block; margin-bottom: 5px; color: var(--sky); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; }
 .message pre, .result { white-space: pre-wrap; word-break: break-word; margin: 0; font: inherit; }
 .empty, .fine-print { color: var(--muted); }
 .quick-prompts { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0; }

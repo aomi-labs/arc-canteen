@@ -12,13 +12,10 @@
   "dependencies": {
     "@arc-canteen/circle-arc-wallet": "workspace:*",
     "@arc-canteen/invoice-workflow": "workspace:*",
-    "@aomi-labs/react": "0.7.5",
-    "@assistant-ui/react": "0.14.29",
+    "@aomi-labs/client": "0.9.4",
     "next": "16.1.0",
     "react": "19.2.7",
-    "react-dom": "19.2.7",
-    "viem": "2.38.5",
-    "wagmi": "2.19.5"
+    "react-dom": "19.2.7"
   },
   "devDependencies": {
     "@types/react": "19.2.14",
