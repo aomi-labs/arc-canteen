@@ -2,14 +2,17 @@
 
 import { useRef } from "react";
 
-export function AgentDemoActions({ sourceUrl }: { sourceUrl: string }) {
+export function AgentDemoActions({ widgetSourceUrl, appSourceUrl }: { widgetSourceUrl: string; appSourceUrl: string }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
 
   return (
     <>
       <div className="live-agent-actions">
-        <a className="button primary" href={sourceUrl} target="_blank" rel="noreferrer">
-          Source Code ↗
+        <a className="button primary" href={widgetSourceUrl} target="_blank" rel="noreferrer">
+          Widget Source Code ↗
+        </a>
+        <a className="button primary" href={appSourceUrl} target="_blank" rel="noreferrer">
+          App Source Code ↗
         </a>
         <button className="button" type="button" onClick={() => dialogRef.current?.showModal()}>
           How it works
