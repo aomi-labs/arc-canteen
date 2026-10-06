@@ -12,6 +12,11 @@
     "check:rust": "cargo check --manifest-path templates/invoice-agent/Cargo.toml",
     "check": "pnpm typecheck && pnpm test && pnpm build && pnpm check:rust"
   },
+  "dependencies": {
+    "next": "16.1.0",
+    "react": "19.2.7",
+    "react-dom": "19.2.7"
+  },
   "devDependencies": {
     "@types/node": "24.10.4",
     "tsx": "4.20.6",
