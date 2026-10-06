@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { CodeBlock } from "@/components/code-block";
-import { ExternalLink, links } from "@/components/site-shell";
+import { links } from "@/components/links";
+import { ExternalLink } from "@/components/site-shell";
 
 const paths = [
   { have: "An agent or decision engine", use: "Aomi × Circle Execution Kit", action: "Connect the Task API client", status: "Preview", href: "/execution-kit", tone: "orange" },

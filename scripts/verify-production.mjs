@@ -15,11 +15,15 @@ async function page(path, expectedText) {
   assert.match(body, expectedText, `${result.url} did not contain the expected product copy`);
 }
 
-await page("/", /Need AI support/);
+await page("/", /Ship an Arc finance agent in 10 minutes/);
 await page("/execution-kit", /Aomi [×x] Circle/);
 await page("/agent-in-a-box", /Agent-in-a-Box/);
 await page("/proof/pay-the-right-invoice", /Pay the right invoice/);
 await page("/examples/invoice-dashboard", /Hosted agent chat is live/);
+
+const home = await (await response("/")).text();
+assert.match(home, /href="https:\/\/arc-invoice-agent\.vercel\.app"/, "live proof CTA lost its href");
+assert.match(home, /href="https:\/\/aomi\.dev\/docs\/build"/, "Aomi Build reference lost its href");
 
 const dashboard = await response("/", { dashboard: true });
 assert.match(await dashboard.text(), /Invoice Agent/);
