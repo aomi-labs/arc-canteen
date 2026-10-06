@@ -25,6 +25,15 @@ const home = await (await response("/")).text();
 assert.match(home, /href="\/agent-in-a-box#watch-live"/, "live agent CTA lost its href");
 assert.match(home, /href="https:\/\/aomi\.dev\/docs\/build"/, "Aomi Build reference lost its href");
 
+const agentInABox = await (await response("/agent-in-a-box")).text();
+assert.match(agentInABox, />Source Code ↗</, "invoice-agent source CTA is missing");
+assert.match(agentInABox, />How it works</, "request-lifecycle CTA is missing");
+assert.match(
+  agentInABox,
+  /href="https:\/\/github\.com\/aomi-labs\/arc-canteen\/tree\/main\/templates\/invoice-agent"/,
+  "invoice-agent source CTA lost its href",
+);
+
 const invoice = await (await response("/api/invoices/INV-1042")).json();
 assert.deepEqual(
   {
@@ -64,6 +73,7 @@ console.log(JSON.stringify({
   checks: {
     productPages: 4,
     integratedAgentPage: true,
+    agentDemoActions: true,
     approvedInvoice: "INV-1042",
     refusedInvoices: ["INV-1043", "INV-1044"],
     settlement: "not exposed",
