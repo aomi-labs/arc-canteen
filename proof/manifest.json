@@ -88,9 +88,13 @@
       "status": "unverified",
       "evidence": "No live Arc transaction hash or independently queried receipt exists."
     },
+    "authorCleanCheckoutReplay": {
+      "status": "verified",
+      "evidence": "A fresh local clone at sourceCommit passed frozen install, all checks, both production builds, Rust check, and Rust formatting on 2026-10-06T10:30:10Z."
+    },
     "independentReplay": {
       "status": "unverified",
-      "evidence": "An author clean-checkout replay is recorded separately; a non-author replay has not occurred."
+      "evidence": "The author clean-checkout replay is recorded in proof/clean-checkout.md; a non-author replay has not occurred."
     }
   }
 }
