@@ -18,6 +18,7 @@ The public site in `apps/site` is a launcher for these products. It intentionall
 - `packages/task-client` — hardened client for the Aomi Task API contract.
 - `packages/circle-arc-wallet` — Circle CLI adapter and independent Arc receipt verifier.
 - `proof/manifest.json` — machine-readable readiness claims. Unverified gates stay unverified.
+- `scripts/verify-production.mjs` — read-only smoke of the two public deployments and fail-closed signer boundary.
 
 ## Run locally
 
@@ -44,6 +45,12 @@ The invoice dashboard is a separate Vercel project from the product site. Deploy
 The script deploys an archive of the current commit, swaps in the dashboard-specific Vercel config inside an isolated temporary directory, and records the source commit in deployment metadata. It never uploads local build output or uncommitted files.
 
 Set `NEXT_PUBLIC_AOMI_APPLICATION_ID` only after Aomi Build has activated the invoice agent. The public deployment intentionally cannot invoke the local Circle CLI signer route.
+
+Verify the public product pages and invoice decisions without signing or mutating wallet state:
+
+```bash
+pnpm check:production
+```
 
 ## Status and trust boundaries
 

@@ -10,7 +10,8 @@
     "typecheck": "pnpm -r --if-present typecheck",
     "test": "pnpm -r --if-present test",
     "check:rust": "cargo check --manifest-path templates/invoice-agent/Cargo.toml",
-    "check": "pnpm typecheck && pnpm test && pnpm build && pnpm check:rust"
+    "check": "pnpm typecheck && pnpm test && pnpm build && pnpm check:rust",
+    "check:production": "node scripts/verify-production.mjs"
   },
   "dependencies": {
     "next": "16.1.0",
