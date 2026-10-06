@@ -13,7 +13,6 @@ const nav = [
   { label: "Choose", href: "/#choose" },
   { label: "Agent", href: "/agent-in-a-box" },
   { label: "Execution", href: "/execution-kit" },
-  { label: "Proof", href: "/proof/pay-the-right-invoice" },
   { label: "Reference", href: "/reference" },
 ];
 

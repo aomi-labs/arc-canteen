@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { CodeBlock } from "@/components/code-block";
 import { links } from "@/components/links";
 import { ExternalLink } from "@/components/site-shell";
@@ -32,7 +31,7 @@ export default function ExecutionKit() {
 
       <section className="runbook-section proof-runbook"><div className="container section-grid">
         <header className="section-index"><span>03</span><div><p className="eyebrow">Inspect the preview</p><h2>Integrate against the tested contract.</h2></div></header>
-        <div><CodeBlock label="CLIENT SURFACE">{install}</CodeBlock><p className="inline-note"><strong>Availability:</strong> there is no confirmed public hosted Task endpoint, OAuth resource, seller address, or trusted JWKS distribution yet. Do not invent production values.</p><div className="actions compact-actions"><ExternalLink className="button primary" href={links.taskClient}>Open client source ↗</ExternalLink><Link className="button" href="/proof/pay-the-right-invoice">Review the proof boundary</Link></div></div>
+        <div><CodeBlock label="CLIENT SURFACE">{install}</CodeBlock><p className="inline-note"><strong>Availability:</strong> there is no confirmed public hosted Task endpoint, OAuth resource, seller address, or trusted JWKS distribution yet. Do not invent production values.</p><div className="actions compact-actions"><ExternalLink className="button primary" href={links.taskClient}>Open client source ↗</ExternalLink></div></div>
       </div></section>
     </>
   );

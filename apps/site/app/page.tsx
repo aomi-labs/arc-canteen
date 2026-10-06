@@ -58,7 +58,7 @@ export default function Home() {
       <section className="runbook-section proof-runbook" id="proof">
         <div className="container section-grid">
           <header className="section-index"><span>03</span><div><p className="eyebrow">Verify the boundary</p><h2>One approval. Two deliberate refusals.</h2></div></header>
-          <div><div className="proof-table">{proof.map(([id, state, result, status]) => <div className="proof-row" key={id}><code>{id}</code><span>{state}</span><strong>{result}</strong><b className={status}>{status === "pass" ? "ALLOW" : "REFUSE"}</b></div>)}</div><div className="actions compact-actions"><ExternalLink className="button primary" href={links.invoiceDashboardLive}>Run all three cases ↗</ExternalLink><Link className="button" href="/proof/pay-the-right-invoice">Read acceptance criteria</Link></div></div>
+          <div><div className="proof-table">{proof.map(([id, state, result, status]) => <div className="proof-row" key={id}><code>{id}</code><span>{state}</span><strong>{result}</strong><b className={status}>{status === "pass" ? "ALLOW" : "REFUSE"}</b></div>)}</div><div className="actions compact-actions"><ExternalLink className="button primary" href={links.invoiceDashboardLive}>Run all three cases ↗</ExternalLink></div></div>
         </div>
       </section>
 
