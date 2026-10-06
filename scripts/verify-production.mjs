@@ -34,6 +34,21 @@ assert.match(
   "invoice-agent source CTA lost its href",
 );
 
+const executionKit = await (await response("/execution-kit")).text();
+const executionSections = [
+  "You already own the intelligence.",
+  "Integrate against the tested contract.",
+  "From agent intent to verified Arc receipt.",
+  "Five gates before completion.",
+];
+let previousSection = -1;
+for (const section of executionSections) {
+  const position = executionKit.indexOf(section);
+  assert.ok(position > previousSection, `execution-kit section is missing or out of order: ${section}`);
+  previousSection = position;
+}
+assert.match(executionKit, /ArcExecutionKit\.arcTestnet/, "complete Execution Kit integration is missing");
+
 const invoice = await (await response("/api/invoices/INV-1042")).json();
 assert.deepEqual(
   {
@@ -74,6 +89,7 @@ console.log(JSON.stringify({
     productPages: 4,
     integratedAgentPage: true,
     agentDemoActions: true,
+    executionKitJourney: true,
     approvedInvoice: "INV-1042",
     refusedInvoices: ["INV-1043", "INV-1044"],
     settlement: "not exposed",
