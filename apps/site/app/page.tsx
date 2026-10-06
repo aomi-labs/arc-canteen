@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { CodeBlock } from "@/components/code-block";
+import { HowItWorks } from "@/components/how-it-works";
 import { links } from "@/components/links";
 import { ExternalLink } from "@/components/site-shell";
 
@@ -39,7 +40,7 @@ export default function Home() {
 
       <section className="runbook-section" id="execution">
         <div className="container section-grid">
-          <header className="section-index"><span>02</span><div><p className="eyebrow">Execution Kit · preview</p><h2>Bring your agent. Control the transaction path.</h2></div></header>
+          <header className="section-index"><span>02</span><div><p className="eyebrow">Execution Kit · preview</p><h2>Bring your agent. 10x execution capability on Arc via x402 Service.</h2><HowItWorks diagram="execution" /></div></header>
           <div className="instruction-list">
             <div className="instruction"><b>01</b><div><strong>Submit a bounded intent</strong><p>Your existing agent sends the exact action and constraints to the Aomi Task API.</p></div><span>Input: agent decision</span></div>
             <div className="instruction"><b>02</b><div><strong>Verify the Task response</strong><p>The client checks the attestation, identities, chain, fee cap, recipient, and amount.</p></div><span>Fail closed</span></div>
@@ -51,7 +52,7 @@ export default function Home() {
 
       <section className="runbook-section" id="agent">
         <div className="container section-grid">
-          <header className="section-index"><span>03</span><div><p className="eyebrow blue-text">Agent-in-a-Box · live</p><h2>Turn your APIs into an agent.</h2></div></header>
+          <header className="section-index"><span>03</span><div><p className="eyebrow blue-text">Agent-in-a-Box · live</p><h2>No agent yet? Your app needs an agentic workflow. Turn your API into automation.</h2><HowItWorks diagram="agent" /></div></header>
           <div className="instruction-list">
             <div className="instruction"><b>01</b><div><strong>Expose your product API</strong><p>Implement the domain operations the agent needs, such as <code>get_invoice</code>, <code>get_vendor</code>, and <code>check_payment_status</code>.</p></div><span>Input: HTTPS API</span></div>
             <div className="instruction"><b>02</b><div><strong>Replace the fixture client</strong><p>Edit <code>templates/invoice-agent/src/client.rs</code> and keep deterministic money checks in code.</p></div><span>Output: typed tools</span></div>
