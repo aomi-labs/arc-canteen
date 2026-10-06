@@ -26,7 +26,8 @@ assert.match(home, /href="\/agent-in-a-box#watch-live"/, "live agent CTA lost it
 assert.match(home, /href="https:\/\/aomi\.dev\/docs\/build"/, "Aomi Build reference lost its href");
 
 const agentInABox = await (await response("/agent-in-a-box")).text();
-assert.match(agentInABox, />Source Code ↗</, "invoice-agent source CTA is missing");
+assert.match(agentInABox, />Widget Source Code ↗</, "widget source CTA is missing");
+assert.match(agentInABox, />App Source Code ↗</, "invoice-agent source CTA is missing");
 assert.match(agentInABox, />How it works</, "request-lifecycle CTA is missing");
 assert.match(
   agentInABox,
