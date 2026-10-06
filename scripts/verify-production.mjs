@@ -26,7 +26,7 @@ assert.match(home, /href="https:\/\/arc-invoice-agent\.vercel\.app"/, "live proo
 assert.match(home, /href="https:\/\/aomi\.dev\/docs\/build"/, "Aomi Build reference lost its href");
 
 const dashboard = await response("/", { dashboard: true });
-assert.match(await dashboard.text(), /AOMI WIDGET/);
+assert.match(await dashboard.text(), /Aomi Widget/i);
 
 const invoice = await (await response("/api/invoices/INV-1042", { dashboard: true })).json();
 assert.deepEqual(
