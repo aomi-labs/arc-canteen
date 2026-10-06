@@ -1,3 +1,8 @@
+.heroTitle,
+.sectionTitle h2 {
+  font-weight: 800;
+}
+
 @media (max-width: 600px) {
   .sectionTitle h2 {
     font-size: 24px;
