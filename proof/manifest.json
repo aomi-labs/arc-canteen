@@ -1,7 +1,7 @@
 {
   "schemaVersion": 3,
-  "testedAt": "2026-10-06T11:39:00Z",
-  "sourceCommit": "87f98021b6ae7322134a79c9ec7ae684af4ca971",
+  "testedAt": "2026-10-06T11:44:00Z",
+  "sourceCommit": "9a352666b4f4ffa9e650ac1b0ba7762c1a1cc134",
   "network": {
     "name": "Arc Testnet",
     "chainId": 5042002
@@ -17,12 +17,14 @@
   "production": {
     "site": {
       "url": "https://arc-canteen.aomi.dev",
-      "deploymentId": "dpl_7h3D7reUWBtJTWrhApVQep48ehXB",
+      "deploymentId": "dpl_CVuTVwCD7KAuQGj6oCXioi4ymr5m",
+      "sourceCommit": "9a352666b4f4ffa9e650ac1b0ba7762c1a1cc134",
       "status": "ready-public"
     },
     "invoiceDashboard": {
       "url": "https://arc-invoice-agent.vercel.app",
       "deploymentId": "dpl_Htb7h51L2iRZfaBqU2ja1sUQZQFv",
+      "sourceCommit": "87f98021b6ae7322134a79c9ec7ae684af4ca971",
       "status": "ready-public"
     }
   },
