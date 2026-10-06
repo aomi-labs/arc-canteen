@@ -35,7 +35,7 @@ export default function Home() {
 
       <section className="runbook-section" id="choose">
         <div className="container section-grid">
-          <header className="section-index"><span>01</span><div><p className="eyebrow">Choose a path</p><h2>Start with what you already have.</h2></div></header>
+          <header className="section-index"><span>01</span><div><p className="eyebrow">Choose a path</p><h2>Do you already have an agent or decision engine?</h2></div></header>
           <div className="path-table">
             <div className="path-head"><span>You already have</span><span>Use</span><span>First action</span><span>Status</span></div>
             {paths.map((path) => <Link className={`path-row ${path.tone}`} href={path.href} key={path.use}><span>{path.have}</span><strong>{path.use}</strong><span>{path.action} →</span><b>{path.status}</b></Link>)}
