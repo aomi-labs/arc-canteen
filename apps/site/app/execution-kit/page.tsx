@@ -7,68 +7,39 @@ import "./execution-kit.css";
 
 export const metadata: Metadata = { title: "Aomi × Circle Execution Kit" };
 
-const integration = `import { readFile } from "node:fs/promises";
-import { createInterface } from "node:readline/promises";
+const integration = `// server/execution.ts
 import { ArcExecutionKit } from "@arc-canteen/task-client";
 import { CircleArcWallet } from "@arc-canteen/circle-arc-wallet";
+import { executionConfig, requireApproval } from "./execution-config";
 
-// Run this from your authenticated, server-side Node process.
 const wallet = new CircleArcWallet({
   walletAddress: process.env.CIRCLE_WALLET_ADDRESS!,
 });
 
 const kit = ArcExecutionKit.arcTestnet({
-  endpoint: "https://YOUR_AOMI_API/v1/task/build",
-  token: () => process.env.AOMI_TASK_TOKEN!,
-  subject: "YOUR_AUTHENTICATED_SUBJECT",
-  recipient: "YOUR_EXPECTED_AOMI_SELLER",
-  trustedJwks: JSON.parse(
-    await readFile("./trusted-aomi-jwks.json", "utf8"),
-  ),
-  maxFeeMicrousd: 1_100_000n,
-  stateDirectory: "/absolute/private/path/invoice-1042",
+  ...executionConfig,
   wallet,
-  rpcUrl: "https://YOUR_ARC_TESTNET_RPC",
 });
 
-// Your agent supplies the decision and exact payment constraints.
 const quote = await kit.prepare({
-  intent: "Pay approved invoice INV-1042",
+  intent: agentDecision,
   reference: "INV-1042",
   sender: wallet.walletAddress,
   recipient: "0x1111111111111111111111111111111111111111",
   amountUsdc: "1",
 });
 
-// Replace this terminal prompt with your authenticated approval UI.
-// It displays the complete review object and fails closed unless approved.
-const reviewer = createInterface({ input: process.stdin, output: process.stdout });
-async function explicitlyApprove(title: string, review: unknown) {
-  console.log(\`\\n\${title}\`);
-  console.dir(review, { depth: null });
-  const answer = await reviewer.question("Approve? [y/N] ");
-  return /^y(es)?$/i.test(answer.trim());
+// Approval 1: purchase the immutable Aomi service plan.
+const artifact = await quote.purchase(requireApproval);
+if ("status" in artifact) {
+  throw new Error("Purchase is pending reconciliation");
 }
 
-try {
-  // Approval 1: show the immutable Aomi plan before buying the service.
-  const artifact = await quote.purchase((preview) =>
-    explicitlyApprove("Purchase this Aomi service plan", preview),
-  );
-  if ("status" in artifact) {
-    throw new Error("Re-run purchase to reconcile this authorization");
-  }
+// Approval 2: review and sign the exact Circle transfer.
+const result = await artifact.execute(requireApproval);
 
-  // Approval 2: show Circle Wallet's exact recipient, amount, and chain.
-  const result = await artifact.execute((review) =>
-    explicitlyApprove("Sign and submit this Circle transfer", review),
-  );
-
-  // Update product state only after the Arc receipt is independently verified.
-  console.log(result.receipt.transactionHash);
-} finally {
-  reviewer.close();
-}`;
+// This receipt has already been independently verified on Arc.
+await markComplete(result.receipt.transactionHash);`;
 
 export default function ExecutionKit() {
   return (
@@ -85,7 +56,7 @@ export default function ExecutionKit() {
 
       <section className="runbook-section proof-runbook"><div className="container section-grid">
         <header className="section-index"><span>02</span><div><p className="eyebrow">Copy the integration</p><h2>Integrate against the tested contract.</h2></div></header>
-        <div><CodeBlock label="SERVER-SIDE NODE · COMPLETE FLOW">{integration}</CodeBlock><p className="inline-note"><strong>Availability:</strong> there is no confirmed public hosted Task endpoint, OAuth resource, seller address, or trusted JWKS distribution yet. Replace every preview placeholder only with values from an Aomi deployment you independently trust.</p><div className="actions compact-actions"><ExternalLink className="button primary" href={links.taskClient}>Open client source ↗</ExternalLink></div></div>
+        <div><CodeBlock label="SERVER-SIDE NODE · CORE FLOW">{integration}</CodeBlock><p className="inline-note"><strong>Preview:</strong> keep the trusted endpoint, identity, seller, JWKS, fee cap, state directory, and Arc RPC in server-side <code>executionConfig</code>. Use only values from an Aomi deployment you independently trust.</p><div className="actions compact-actions"><ExternalLink className="button primary" href={links.taskClient}>Open full implementation ↗</ExternalLink></div></div>
       </div></section>
 
       <section className="runbook-section execution-sequence-section"><div className="container">
