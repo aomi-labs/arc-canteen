@@ -4,7 +4,7 @@ import { lstat, mkdir, open, readFile, rename, rmdir } from "node:fs/promises";
 import path from "node:path";
 import canonicalize from "canonicalize";
 import { hashTypedData, keccak256, stringToHex } from "viem";
-import { ARC_TESTNET_CHAIN_ID, verifyArcTransferReceipt, } from "@arc-canteen/circle-arc-wallet";
+import { ARC_TESTNET_CHAIN_ID, verifyArcTransferReceipt, } from "../../circle-arc-wallet/dist/index.js";
 const USDC = "0x3600000000000000000000000000000000000000";
 const GATEWAY = "0x0077777d7eba4688bdef3e311b846f25870a19b9";
 const TASK_RESOURCE = "https://chat.aomi.dev/v1/task";
