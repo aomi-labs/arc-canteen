@@ -15,8 +15,6 @@ const kit = ArcExecutionKit.arcTestnet({
   // Preview configuration: these values must come from the Aomi deployment
   // you independently trust. There are no production defaults yet.
   endpoint: "https://YOUR_AOMI_API/v1/task/build",
-  token: () => process.env.AOMI_TASK_TOKEN!,
-  subject: "YOUR_AUTHENTICATED_SUBJECT",
   recipient: "YOUR_EXPECTED_AOMI_SELLER",
   trustedJwks: JSON.parse(await readFile("./trusted-aomi-jwks.json", "utf8")),
   maxFeeMicrousd: 1_100_000n,
@@ -58,4 +56,4 @@ Contract calls, ERC-20 approvals, batches, swaps, bridges, arbitrary calldata, m
 
 ## Preview status
 
-There is no confirmed public hosted Task endpoint, OAuth resource, seller address, or trusted JWKS distribution for this kit today. The package is therefore a tested preview, not a runnable hosted quickstart. Do not substitute values learned from an untrusted quote.
+The Task API is signature-only: Circle signs each exact EIP-712 Task request, then separately signs the Gateway payment and final execution. No login, OAuth resource, access token, refresh token, API key, or bearer is used. A hosted endpoint still needs an independently provisioned seller address and trusted attestation JWKS; do not substitute values learned from an untrusted quote.

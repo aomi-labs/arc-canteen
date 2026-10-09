@@ -3,6 +3,8 @@ import { createHash, createPublicKey, randomUUID, verify } from "node:crypto";
 import type { JsonWebKey as NodeJsonWebKey } from "node:crypto";
 import { lstat, mkdir, open, readFile, rename, rmdir } from "node:fs/promises";
 import path from "node:path";
+import canonicalize from "canonicalize";
+import { hashTypedData, keccak256, stringToHex } from "viem";
 import {
   ARC_TESTNET_CHAIN_ID,
   CircleArcWallet,
@@ -13,23 +15,25 @@ import {
 } from "@arc-canteen/circle-arc-wallet";
 
 export type TaskRequest = {
+  executionKind?: "eoa_transactions" | "smart_account_calls";
+  transactionSafetyMode?: string | null;
   intent: string;
   chainId: number;
   sender: string;
   payer?: string;
+  calls?: readonly SmartAccountCall[];
   constraints?: Record<string, unknown> | null;
 };
 
 export type TaskClientOptions = {
   endpoint: string;
-  token: () => string;
-  subject: string;
   payer: string;
   recipient: string;
   maxFeeMicrousd: bigint;
   trustedJwks: { keys: Record<string, unknown>[] };
   stateDirectory: string;
   signTypedData: (data: unknown) => Promise<string>;
+  idempotencyKey?: () => string;
   fetch?: typeof fetch;
   now?: () => number;
 };
@@ -40,6 +44,7 @@ export type TaskPurchaseResult =
 
 export type TaskQuotePreview = {
   quoteId: string;
+  requestHash: string;
   payloadHash: string;
   summary: Record<string, unknown>;
   pricing: Record<string, unknown>;
@@ -48,6 +53,8 @@ export type TaskQuotePreview = {
 
 const USDC = "0x3600000000000000000000000000000000000000";
 const GATEWAY = "0x0077777d7eba4688bdef3e311b846f25870a19b9";
+const TASK_RESOURCE = "https://chat.aomi.dev/v1/task";
+const TASK_ENDPOINT = "/v1/task/build";
 const hash = (data: Uint8Array | string) => createHash("sha256").update(data).digest("hex");
 
 function requireThat(condition: unknown, message: string): asserts condition {
@@ -73,7 +80,7 @@ function stable(value: unknown): string {
   return JSON.stringify(value);
 }
 
-function normalized(request: TaskRequest) {
+function normalized(request: TaskRequest, idempotencyKey?: string) {
   const source = request.constraints ?? {};
   const constraints = request.constraints == null ? null : {
     maxOutgoingUsdcWei: null,
@@ -86,12 +93,70 @@ function normalized(request: TaskRequest) {
     })),
   };
   return {
+    executionKind: request.executionKind ?? "eoa_transactions",
+    transactionSafetyMode: request.transactionSafetyMode ?? null,
     intent: request.intent,
-    chainId: request.chainId,
+    chainId: String(request.chainId),
     sender: address(request.sender),
     payer: address(request.payer ?? request.sender),
-    constraints,
+    calls: (request.calls ?? []).map((call) => ({
+      to: address(call.to),
+      data: call.data.toLowerCase(),
+      value: decimal(call.value).toString(),
+    })),
+    constraints: constraints == null ? null : {
+      ...constraints,
+      maxGasUnits: constraints.maxGasUnits == null ? null : String(constraints.maxGasUnits),
+    },
+    ...(idempotencyKey === undefined ? {} : { idempotencyKey }),
   };
+}
+
+const TASK_TYPES = {
+  TaskAuthorization: [
+    { name: "endpoint", type: "string" },
+    { name: "requestHash", type: "bytes32" },
+    { name: "chainId", type: "uint256" },
+    { name: "sender", type: "address" },
+    { name: "payer", type: "address" },
+    { name: "idempotencyKey", type: "string" },
+    { name: "issuedAt", type: "uint64" },
+    { name: "expiresAt", type: "uint64" },
+  ],
+} as const;
+
+export function taskAuthorizationData(request: TaskRequest, idempotencyKey: string, issuedAt: number, expiresAt = issuedAt + 300) {
+  requireThat(Number.isSafeInteger(issuedAt) && Number.isSafeInteger(expiresAt) && expiresAt > issuedAt && expiresAt - issuedAt <= 300, "Task authorization must live for at most five minutes");
+  const canonical = (canonicalize as unknown as (value: unknown) => string | undefined)(normalized(request, idempotencyKey));
+  requireThat(canonical, "Task request is not canonicalizable");
+  const requestHash = keccak256(stringToHex(canonical));
+  const sender = address(request.sender) as `0x${string}`;
+  const payer = address(request.payer ?? request.sender) as `0x${string}`;
+  const typedData = {
+    domain: {
+      name: "Aomi Task API",
+      version: "1",
+      chainId: request.chainId,
+      salt: keccak256(stringToHex(TASK_RESOURCE)),
+    },
+    types: TASK_TYPES,
+    primaryType: "TaskAuthorization" as const,
+    message: {
+      endpoint: TASK_ENDPOINT,
+      requestHash,
+      chainId: BigInt(request.chainId),
+      sender,
+      payer,
+      idempotencyKey,
+      issuedAt: BigInt(issuedAt),
+      expiresAt: BigInt(expiresAt),
+    },
+  };
+  return { canonical, requestHash, digest: hashTypedData(typedData), typedData };
+}
+
+function walletPrincipal(request: TaskRequest) {
+  return `wallet:eip155:${request.chainId}:${address(request.sender)}`;
 }
 
 export function verifyAttestation(
@@ -137,11 +202,11 @@ export function validateQuote(
   options: TaskClientOptions,
   now: number,
 ) {
-  const claims = verifyAttestation(quote.attestation, options.trustedJwks, options.subject, now) as Record<string, any>;
+  const claims = verifyAttestation(quote.attestation, options.trustedJwks, walletPrincipal(request), now) as Record<string, any>;
   requireThat(typeof quote.quoteId === "string" && /^[0-9a-f-]{36}$/i.test(quote.quoteId) && typeof quote.retrievalToken === "string" && quote.retrievalToken.length >= 32, "Invalid quote capability");
   requireThat(/^[0-9a-f]{64}$/.test(quote.payloadHash) && claims.quoteId === quote.quoteId && claims.payloadHash === quote.payloadHash && claims.requestHash === quote.requestHash && /^[0-9a-f]{64}$/.test(quote.requestHash), "Quote hash binding mismatch");
   requireThat(claims.exp === quote.expiresAt && quote.expiresAt > now + 15, "Quote expires too soon");
-  requireThat(stable(normalized(claims.request)) === stable(normalized(request)), "Signed request differs from requested task");
+  requireThat(stable(claims.request) === stable(normalized(request, claims.request?.idempotencyKey)), "Signed request differs from requested task");
   requireThat(quote.summary && typeof quote.summary === "object" && !Array.isArray(quote.summary) && quote.pricing && typeof quote.pricing === "object" && !Array.isArray(quote.pricing) && stable(quote.summary) === stable(claims.summary) && stable(quote.pricing) === stable(claims.pricing), "Preview differs from signed summary or pricing");
   requireThat(quote.summary.source?.chainId === request.chainId, "Signed preview source has wrong chain");
   requireThat(claims.paymentRequiredHash === hash(requiredHeader) && (!quote.paymentRequired || quote.paymentRequired === requiredHeader), "Payment requirement attestation mismatch");
@@ -153,7 +218,7 @@ export function validateQuote(
   const fee = decimal(accepted.amount);
   requireThat(request.chainId === 5_042_002 && accepted.scheme === "exact" && accepted.network === `eip155:${request.chainId}`, "Only explicitly supported Arc testnet Gateway rail is allowed");
   requireThat(address(accepted.asset) === USDC && address(accepted.payTo) === address(options.recipient), "Unexpected asset or recipient");
-  requireThat(address(request.payer ?? request.sender) === address(options.payer) && address(claims.payer) === address(options.payer) && claims.chainId === request.chainId, "Wrong payer or chain");
+  requireThat(address(request.payer ?? request.sender) === address(options.payer) && address(claims.payer) === address(options.payer) && Number(claims.chainId) === request.chainId, "Wrong payer or chain");
   requireThat(fee > 0n && fee <= options.maxFeeMicrousd && (typeof claims.amountMicrousd === "string" || Number.isSafeInteger(claims.amountMicrousd)) && BigInt(claims.amountMicrousd) === fee && decimal(quote.pricing?.fee_microusd) === fee, "Fee exceeds limit or differs from signed quote");
   requireThat(typeof accepted.extra?.aomiTaskNonce === "string" && /^0x[0-9a-f]{64}$/.test(accepted.extra.aomiTaskNonce) && accepted.extra.aomiTaskNonce !== `0x${"0".repeat(64)}`, "Missing or invalid quote-bound authorization nonce");
   requireThat(accepted.extra?.name === "GatewayWalletBatched" && accepted.extra?.version === "1" && address(accepted.extra?.verifyingContract) === GATEWAY, "Unexpected EIP712 domain");
@@ -211,7 +276,6 @@ export class TaskClient {
 
   private async post(body: unknown, payment?: string) {
     const headers: Record<string, string> = {
-      authorization: `Bearer ${this.options.token()}`,
       "content-type": "application/json",
     };
     if (payment) headers["payment-signature"] = payment;
@@ -256,7 +320,6 @@ export class TaskClient {
   private policy(request: TaskRequest) {
     return {
       endpoint: this.options.endpoint,
-      subject: this.options.subject,
       payer: address(this.options.payer),
       recipient: address(this.options.recipient),
       maxFee: this.options.maxFeeMicrousd.toString(),
@@ -274,7 +337,7 @@ export class TaskClient {
       state = JSON.parse(await readFile(file, "utf8"));
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
-      state = { policy, idempotencyKey: randomUUID(), phase: "prepare" };
+      state = { policy, idempotencyKey: this.options.idempotencyKey?.() ?? randomUUID(), phase: "prepare" };
       await this.save(state);
     }
     requireThat(stable(state.policy) === stable(policy), "Existing purchase differs; retain journal and reconcile it before any new purchase");
@@ -283,12 +346,34 @@ export class TaskClient {
 
   private async prepared(request: TaskRequest) {
     let state = await this.load(request);
+    if (!state.taskAuthorization) {
+      const issuedAt = this.now();
+      const authorization = taskAuthorizationData(request, state.idempotencyKey, issuedAt);
+      const signature = await this.options.signTypedData(authorization.typedData);
+      requireThat(/^0x[0-9a-f]+$/i.test(signature) && signature.length >= 132 && signature.length <= 32_770, "Invalid Task authorization signature");
+      state.taskAuthorization = {
+        issuedAt,
+        expiresAt: issuedAt + 300,
+        signature: signature.toLowerCase(),
+      };
+      state.requestHash = authorization.requestHash.slice(2);
+      state.phase = "task_authorized";
+      await this.save(state);
+    }
     if (!state.quote) {
-      const { response, bytes } = await this.post({ ...request, idempotencyKey: state.idempotencyKey });
+      const wireRequest = normalized(request, state.idempotencyKey);
+      const { response, bytes } = await this.post({
+        ...wireRequest,
+        chainId: request.chainId,
+        calls: request.calls ?? [],
+        constraints: request.constraints ?? null,
+        authorization: state.taskAuthorization,
+      });
       requireThat(response.status === 402, "No payable quote; retain idempotency key");
       const header = response.headers.get("payment-required");
       requireThat(header, "Missing Payment-Required");
       const quote = JSON.parse(bytes.toString());
+      requireThat(quote.requestHash === state.requestHash, "Quote request hash differs from the signed Task request");
       validateQuote(quote, header, request, this.options, this.now());
       state = { ...state, quote, requiredHeader: header, verifiedAt: this.now(), phase: "quoted" };
       await this.save(state);
@@ -302,6 +387,7 @@ export class TaskClient {
       const state = await this.prepared(request);
       return {
         quoteId: state.quote.quoteId,
+        requestHash: state.quote.requestHash,
         payloadHash: state.quote.payloadHash,
         summary: state.quote.summary,
         pricing: state.quote.pricing,
@@ -363,7 +449,7 @@ export class TaskClient {
           validBefore: BigInt(authorization.validBefore),
         },
       });
-      requireThat(/^0x[0-9a-f]{130}$/i.test(signature), "Invalid wallet signature");
+      requireThat(/^0x[0-9a-f]+$/i.test(signature) && signature.length >= 132 && signature.length <= 32_770, "Invalid wallet signature");
       state.paymentSignature = Buffer.from(JSON.stringify({
         x402Version: 2,
         accepted,
@@ -374,9 +460,13 @@ export class TaskClient {
       await this.save(state);
     }
     const wire = JSON.parse(Buffer.from(state.paymentSignature, "base64").toString());
-    requireThat(wire.x402Version === 2 && stable(wire.accepted) === stable(accepted) && stable(wire.resource) === stable(required.resource) && stable(wire.payload?.authorization) === stable(authorization) && /^0x[0-9a-f]{130}$/i.test(wire.payload?.signature), "Stored signed payload differs from durable authorization");
+    requireThat(wire.x402Version === 2 && stable(wire.accepted) === stable(accepted) && stable(wire.resource) === stable(required.resource) && stable(wire.payload?.authorization) === stable(authorization) && /^0x[0-9a-f]+$/i.test(wire.payload?.signature), "Stored signed payload differs from durable authorization");
     const { response, bytes } = await this.post(
-      { quoteId: state.quote.quoteId, retrievalToken: state.quote.retrievalToken },
+      {
+        quoteId: state.quote.quoteId,
+        retrievalToken: state.quote.retrievalToken,
+        authorization: state.taskAuthorization,
+      },
       state.paymentSignature,
     );
     if (response.status !== 200) return { status: "pending" };
@@ -391,6 +481,90 @@ export class TaskClient {
     await this.save(state);
     return { status: "complete", bytes, receipt };
   }
+}
+
+export type SmartAccountCall = {
+  to: `0x${string}`;
+  data: `0x${string}`;
+  value: string;
+};
+
+export type SmartAccountCallPlan = {
+  chainId: number;
+  wallet: `0x${string}`;
+  requestHash: string;
+  authorizationIdentity: string;
+  codeHash?: string;
+  counterfactual: boolean;
+  expiresAt: number;
+  artifactHash: string;
+  buildDigest: string;
+  calls: SmartAccountCall[];
+  summary: Record<string, unknown>;
+};
+
+export function parseSmartAccountArtifact(
+  bytes: Buffer,
+  request: TaskRequest,
+  quote: TaskQuotePreview,
+  now = Math.floor(Date.now() / 1_000),
+): SmartAccountCallPlan {
+  requireThat(request.executionKind === "smart_account_calls", "Request is not smart-account call mode");
+  const artifact = object(JSON.parse(bytes.toString("utf8")), "Task artifact");
+  const build = object(artifact.build, "Task build");
+  const report = object(artifact.report, "Task report");
+  const summary = object(artifact.summary, "Task summary");
+  requireThat(stable(summary) === stable(quote.summary), "Paid artifact summary differs from the attested quote preview");
+  requireThat(summary.requestHash === quote.requestHash, "Artifact is not bound to the signed Task request");
+  requireThat(summary.senderBinding?.executionKind === "smart_account_calls" && summary.senderBinding?.simulationScope === "inner_calls_only", "Artifact does not state the smart-account simulation boundary");
+  requireThat(typeof summary.authorizationIdentity === "string" && summary.authorizationIdentity.length > 4, "Artifact is missing wallet authorization identity");
+  requireThat(build.version === 2 && build.status === "simulated" && build.expiresAt > now + 15, "Task build is not a live simulated Build");
+  requireThat(typeof build.digest === "string" && /^[0-9a-f]{64}$/i.test(build.digest), "Task build digest is invalid");
+  requireThat(Array.isArray(artifact.walletCalls) && artifact.walletCalls.length > 0 && artifact.walletCalls.length <= 16, "Smart-account artifact must expose ordered wallet calls");
+  const requestedCalls = request.calls;
+  requireThat(Array.isArray(requestedCalls) && requestedCalls.length === artifact.walletCalls.length, "Artifact call count differs from the signed request");
+  requireThat(Array.isArray(build.actions) && build.actions.length === artifact.walletCalls.length, "Wallet calls and simulated actions differ in length");
+  requireThat(Array.isArray(report.steps) && report.steps.length === artifact.walletCalls.length, "Wallet calls and simulation differ in length");
+  const calls = artifact.walletCalls.map((raw: unknown, index: number) => {
+    const call = object(raw, `Wallet call ${index + 1}`);
+    const action = object(build.actions[index], `Task action ${index + 1}`);
+    const step = object(report.steps[index], `Simulation step ${index + 1}`);
+    const to = address(call.to) as `0x${string}`;
+    requireThat(typeof call.data === "string" && /^0x(?:[0-9a-f]{2})*$/i.test(call.data), "Wallet calldata is invalid");
+    const value = exactWei(call.value).toString();
+    const expected = requestedCalls[index];
+    requireThat(
+      address(expected.to) === to
+        && expected.data.toLowerCase() === call.data.toLowerCase()
+        && exactWei(expected.value).toString() === value,
+      "Wallet call differs from the signed Task request",
+    );
+    requireThat(
+      address(action.from) === address(request.sender) && address(action.to) === to &&
+      String(action.data).toLowerCase() === call.data.toLowerCase() && exactWei(action.value).toString() === value,
+      "Wallet call differs from the frozen action",
+    );
+    requireThat(
+      step.step === index + 1 && step.execution?.status === "succeeded" &&
+      address(step.call?.to) === to && String(step.call?.data).toLowerCase() === call.data.toLowerCase() &&
+      exactWei(step.call?.value).toString() === value,
+      "Wallet call differs from successful simulation evidence",
+    );
+    return { to, data: call.data.toLowerCase() as `0x${string}`, value };
+  });
+  return {
+    chainId: request.chainId,
+    wallet: address(request.sender) as `0x${string}`,
+    requestHash: quote.requestHash,
+    authorizationIdentity: summary.authorizationIdentity,
+    codeHash: summary.senderBinding.codeHash,
+    counterfactual: summary.senderBinding.counterfactual === true,
+    expiresAt: build.expiresAt,
+    artifactHash: quote.payloadHash,
+    buildDigest: build.digest.toLowerCase(),
+    calls,
+    summary,
+  };
 }
 
 export function taskClientWithCircle(
