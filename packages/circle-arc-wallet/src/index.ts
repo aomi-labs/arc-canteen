@@ -56,6 +56,7 @@ export interface ArcReceipt {
   transactionHash: `0x${string}`;
   blockNumber: `0x${string}`;
   status: "0x1";
+  logs: readonly Record<string, unknown>[];
 }
 
 export interface ArcTransferReceipt extends ArcReceipt {
@@ -65,13 +66,7 @@ export interface ArcTransferReceipt extends ArcReceipt {
   input: "0x";
 }
 
-export interface ArcCallReceipt extends ArcReceipt {
-  from: `0x${string}`;
-  to: `0x${string}`;
-  value: `0x${string}`;
-  input: `0x${string}`;
-  logs: readonly Record<string, unknown>[];
-}
+export type ArcCallReceipt = ArcReceipt;
 
 export type CommandRunner = (
   command: string,
@@ -91,6 +86,15 @@ function amount(value: string): string {
   }
   if (Number(value) <= 0) throw new Error("USDC amount must be positive");
   return value;
+}
+
+function nativeAmount(valueWei: string): string {
+  if (!/^(0|[1-9][0-9]*)$/.test(valueWei)) throw new Error("Contract value must be decimal wei");
+  const wei = BigInt(valueWei);
+  const unit = 10n ** 18n;
+  const whole = wei / unit;
+  const fraction = (wei % unit).toString().padStart(18, "0").replace(/0+$/, "");
+  return fraction ? `${whole}.${fraction}` : whole.toString();
 }
 
 function parseJsonOutput(stdout: string): unknown {
@@ -216,7 +220,7 @@ export class CircleArcWallet {
     if (plan.chainId !== ARC_TESTNET_CHAIN_ID) throw new Error("Only Arc Testnet is supported");
     const to = address(plan.to);
     if (!/^0x(?:[0-9a-f]{2})*$/i.test(plan.data)) throw new Error("Contract calldata must be hex bytes");
-    if (!/^(0|[1-9][0-9]*)$/.test(plan.value)) throw new Error("Contract value must be decimal wei");
+    const executionAmount = nativeAmount(plan.value);
     if (!/^[A-Za-z0-9._:-]{8,128}$/.test(plan.idempotencyKey)) throw new Error("Use an explicit stable idempotency key");
     const item = parseAbiItem(`function ${plan.abiFunctionSignature}`);
     const encoded = encodeFunctionData({ abi: [item], args: plan.abiParameters });
@@ -226,13 +230,13 @@ export class CircleArcWallet {
       "--contract", to,
       "--address", this.walletAddress,
       "--chain", ARC_TESTNET,
-      "--amount", plan.value,
+      "--amount", executionAmount,
       "--idempotency-key", plan.idempotencyKey,
       "--output", "json",
     ] as const;
     return {
       title: plan.label,
-      summary: `Execute exact ${plan.data.slice(0, 10)} call on ${to} with value ${plan.value}`,
+      summary: `Execute exact ${plan.data.slice(0, 10)} call on ${to} with ${executionAmount} native token (${plan.value} wei)`,
       command,
       chainId: plan.chainId,
       walletAddress: this.walletAddress,
@@ -295,7 +299,13 @@ export class CircleArcWallet {
     typedData: unknown,
     confirm: (review: { title: string; typedData: unknown; walletAddress: string }) => boolean | Promise<boolean>,
   ): Promise<`0x${string}`> {
-    if (!(await confirm({ title: "Authorize the Aomi Task purchase", typedData, walletAddress: this.walletAddress }))) {
+    const primaryType = (typedData as { primaryType?: unknown } | null)?.primaryType;
+    const title = primaryType === "TaskAuthorization"
+      ? "Authorize this exact Aomi Task request"
+      : primaryType === "TransferWithAuthorization"
+        ? "Authorize the Aomi Task service payment"
+        : "Authorize typed data";
+    if (!(await confirm({ title, typedData, walletAddress: this.walletAddress }))) {
       throw new Error("Circle wallet signature rejected by the reviewer");
     }
     const { stdout } = await this.runner(this.command, [
@@ -343,6 +353,7 @@ export async function verifyArcReceipt(
     transactionHash: hash.toLowerCase() as `0x${string}`,
     blockNumber: blockNumber as `0x${string}`,
     status: "0x1",
+    logs: Array.isArray(body.result.logs) ? body.result.logs as Record<string, unknown>[] : [],
   };
 }
 
@@ -386,47 +397,7 @@ export async function verifyArcTransferReceipt(
 export async function verifyArcCallReceipt(
   transactionHash: string,
   rpcUrl: string,
-  expected: { to: string; valueWei: string; data: string },
   fetchImpl: typeof fetch = fetch,
 ): Promise<ArcCallReceipt> {
-  const receipt = await verifyArcReceipt(transactionHash, rpcUrl, fetchImpl);
-  const to = address(expected.to);
-  if (!/^(0|[1-9][0-9]*)$/.test(expected.valueWei)) throw new Error("Expected call value must be decimal wei");
-  if (!/^0x(?:[0-9a-f]{2})*$/i.test(expected.data)) throw new Error("Expected call data must be hex bytes");
-  const response = await fetchImpl(rpcUrl, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ jsonrpc: "2.0", id: 2, method: "eth_getTransactionByHash", params: [transactionHash] }),
-    signal: AbortSignal.timeout(15_000),
-  });
-  if (!response.ok) throw new Error(`Arc RPC returned ${response.status}`);
-  const transaction = await response.json() as { result?: Record<string, unknown>; error?: unknown };
-  if (transaction.error || !transaction.result) throw new Error("Arc transaction is not available");
-  const receiptResponse = await fetchImpl(rpcUrl, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ jsonrpc: "2.0", id: 3, method: "eth_getTransactionReceipt", params: [transactionHash] }),
-    signal: AbortSignal.timeout(15_000),
-  });
-  if (!receiptResponse.ok) throw new Error(`Arc RPC returned ${receiptResponse.status}`);
-  const receiptBody = await receiptResponse.json() as { result?: Record<string, unknown>; error?: unknown };
-  if (receiptBody.error || !receiptBody.result) throw new Error("Arc receipt is not available");
-  const actual = transaction.result;
-  const from = address(readString(actual, ["from"]) ?? "");
-  const value = `0x${BigInt(expected.valueWei).toString(16)}`.toLowerCase();
-  const input = readString(actual, ["input"]);
-  if (
-    readString(actual, ["hash"])?.toLowerCase() !== receipt.transactionHash ||
-    readString(actual, ["to"])?.toLowerCase() !== to ||
-    readString(actual, ["value"])?.toLowerCase() !== value ||
-    input?.toLowerCase() !== expected.data.toLowerCase()
-  ) throw new Error("Arc transaction does not match the exact reviewed contract call");
-  return {
-    ...receipt,
-    from,
-    to,
-    value: value as `0x${string}`,
-    input: input.toLowerCase() as `0x${string}`,
-    logs: Array.isArray(receiptBody.result?.logs) ? receiptBody.result.logs as Record<string, unknown>[] : [],
-  };
+  return verifyArcReceipt(transactionHash, rpcUrl, fetchImpl);
 }

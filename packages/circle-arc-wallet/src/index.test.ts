@@ -95,6 +95,7 @@ test("verifies a successful receipt through an independent Arc RPC", async () =>
     return new Response(JSON.stringify({ result: { transactionHash: hash, blockNumber: "0x2a", status: "0x1" } }));
   });
   assert.equal(receipt.blockNumber, "0x2a");
+  assert.deepEqual(receipt.logs, []);
 });
 
 test("binds the confirmed Arc transaction to the exact reviewed transfer", async () => {
@@ -134,6 +135,7 @@ test("executes only ABI parameters that reproduce the exact Aomi calldata", asyn
     walletAddress: wallet,
     runner: async (_command, args) => {
       assert.deepEqual(args.slice(0, 5), ["wallet", "execute", "execute(address,bytes)", target, inner]);
+      assert.equal(args[args.indexOf("--amount") + 1], "0.000000000000000001");
       return { stdout: JSON.stringify({ id: "circle-call-1", state: "initiated" }), stderr: "" };
     },
   });
@@ -141,7 +143,7 @@ test("executes only ABI parameters that reproduce the exact Aomi calldata", asyn
     chainId: ARC_TESTNET_CHAIN_ID,
     to: recipient as `0x${string}`,
     data,
-    value: "0",
+    value: "1",
     abiFunctionSignature: "execute(address,bytes)",
     abiParameters: [target, inner],
     idempotencyKey: "mandate-call-0001",
@@ -177,20 +179,15 @@ test("asks Circle to sign the exact EIP-712 object without a bearer or local key
   assert.equal(await client.signTypedData(typedData, () => true), signature);
 });
 
-test("verifies the exact contract calldata and preserves receipt logs", async () => {
+test("verifies a smart-account receipt independently and preserves application logs", async () => {
   const hash = `0x${"88".repeat(32)}`;
-  const data = "0x12345678";
-  const bundler = payerAddress();
-  let receipts = 0;
+  const calls: string[] = [];
   const fetchImpl: typeof fetch = async (_url, init) => {
     const method = JSON.parse(String(init?.body)).method;
-    if (method === "eth_getTransactionByHash") return new Response(JSON.stringify({ result: { hash, from: bundler, to: recipient, value: "0x0", input: data } }));
-    receipts += 1;
+    calls.push(method);
     return new Response(JSON.stringify({ result: { transactionHash: hash, blockNumber: "0x2d", status: "0x1", logs: [{ address: recipient }] } }));
   };
-  const receipt = await verifyArcCallReceipt(hash, "https://rpc.example", { to: recipient, valueWei: "0", data }, fetchImpl);
-  assert.equal(receipt.from, bundler);
-  assert.equal(receipt.input, data);
+  const receipt = await verifyArcCallReceipt(hash, "https://rpc.example", fetchImpl);
   assert.equal(receipt.logs.length, 1);
-  assert.equal(receipts, 2);
+  assert.deepEqual(calls, ["eth_getTransactionReceipt"]);
 });

@@ -203,8 +203,12 @@ export function validateQuote(
   now: number,
 ) {
   const claims = verifyAttestation(quote.attestation, options.trustedJwks, walletPrincipal(request), now) as Record<string, any>;
+  requireThat(typeof claims.request?.idempotencyKey === "string", "Signed request has no idempotency key");
+  const canonical = (canonicalize as unknown as (value: unknown) => string | undefined)(normalized(request, claims.request.idempotencyKey));
+  requireThat(canonical, "Task request is not canonicalizable");
+  const requestHash = keccak256(stringToHex(canonical)).slice(2);
   requireThat(typeof quote.quoteId === "string" && /^[0-9a-f-]{36}$/i.test(quote.quoteId) && typeof quote.retrievalToken === "string" && quote.retrievalToken.length >= 32, "Invalid quote capability");
-  requireThat(/^[0-9a-f]{64}$/.test(quote.payloadHash) && claims.quoteId === quote.quoteId && claims.payloadHash === quote.payloadHash && claims.requestHash === quote.requestHash && /^[0-9a-f]{64}$/.test(quote.requestHash), "Quote hash binding mismatch");
+  requireThat(/^[0-9a-f]{64}$/.test(quote.payloadHash) && claims.quoteId === quote.quoteId && claims.payloadHash === quote.payloadHash && claims.requestHash === quote.requestHash && quote.requestHash === requestHash && /^[0-9a-f]{64}$/.test(quote.requestHash), "Quote hash binding mismatch");
   requireThat(claims.exp === quote.expiresAt && quote.expiresAt > now + 15, "Quote expires too soon");
   requireThat(stable(claims.request) === stable(normalized(request, claims.request?.idempotencyKey)), "Signed request differs from requested task");
   requireThat(quote.summary && typeof quote.summary === "object" && !Array.isArray(quote.summary) && quote.pricing && typeof quote.pricing === "object" && !Array.isArray(quote.pricing) && stable(quote.summary) === stable(claims.summary) && stable(quote.pricing) === stable(claims.pricing), "Preview differs from signed summary or pricing");
@@ -346,9 +350,10 @@ export class TaskClient {
 
   private async prepared(request: TaskRequest) {
     let state = await this.load(request);
-    if (!state.taskAuthorization) {
+    if (!state.quote && (!state.taskAuthorization || state.taskAuthorization.expiresAt <= this.now() + 30)) {
       const issuedAt = this.now();
       const authorization = taskAuthorizationData(request, state.idempotencyKey, issuedAt);
+      requireThat(!state.requestHash || state.requestHash === authorization.requestHash.slice(2), "Refreshed Task authorization changed the request hash");
       const signature = await this.options.signTypedData(authorization.typedData);
       requireThat(/^0x[0-9a-f]+$/i.test(signature) && signature.length >= 132 && signature.length <= 32_770, "Invalid Task authorization signature");
       state.taskAuthorization = {
@@ -824,7 +829,10 @@ export class ArcExecutionKit {
     return new ArcExecutionKit(options);
   }
 
-  async prepare(intent: ArcPaymentIntent): Promise<ArcExecutionQuote> {
+  async prepare(
+    intent: ArcPaymentIntent,
+    authorizeTask: (review: { title: string; typedData: unknown; walletAddress: string }) => boolean | Promise<boolean>,
+  ): Promise<ArcExecutionQuote> {
     requireThat(address(intent.sender) === address(this.options.wallet.walletAddress), "Circle wallet must be the selected sender");
     requireThat(Boolean(intent.reference.trim()) && intent.reference.length <= 120, "A short payment reference is required");
     const recipient = address(intent.recipient);
@@ -846,6 +854,9 @@ export class ArcExecutionKit {
       ...this.options,
       payer: this.options.wallet.walletAddress,
       signTypedData: (typedData) => {
+        const primaryType = (typedData as { primaryType?: unknown } | null)?.primaryType;
+        if (primaryType === "TaskAuthorization") return this.options.wallet.signTypedData(typedData, authorizeTask);
+        requireThat(primaryType === "TransferWithAuthorization", "Unsupported typed-data request");
         requireThat(purchaseApproval, "Purchase approval was not established");
         return this.options.wallet.signTypedData(typedData, purchaseApproval);
       },

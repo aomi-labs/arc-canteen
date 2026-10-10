@@ -5,7 +5,7 @@ import test from "node:test";
 import os from "node:os";
 import path from "node:path";
 import { CircleArcWallet } from "@arc-canteen/circle-arc-wallet";
-import { ArcPurchasedArtifact, TaskClient, parseArcTransferArtifact, parseSmartAccountArtifact, taskAuthorizationData, type ArcTransferPlan, type TaskClientOptions, type TaskQuotePreview, validateQuote, verifyAttestation } from "./index.ts";
+import { ArcExecutionKit, ArcPurchasedArtifact, TaskClient, parseArcTransferArtifact, parseSmartAccountArtifact, taskAuthorizationData, type ArcTransferPlan, type TaskClientOptions, type TaskQuotePreview, type TaskRequest, validateQuote, verifyAttestation } from "./index.ts";
 
 const payer = "0x1111111111111111111111111111111111111111";
 const recipient = "0x2222222222222222222222222222222222222222";
@@ -32,12 +32,16 @@ test("matches the Rust golden JCS request hash and EIP-712 digest", () => {
   assert.equal(fixture.digest, "0xea9e8ea48e6e745025f4176a5e56757773adc6565169036c594153e83add23de");
 });
 
-function fixture(change?: (requirement: any) => void) {
+function fixture(
+  change?: (requirement: any) => void,
+  taskRequest: TaskRequest = request,
+  changeClaims?: (claims: any) => void,
+) {
   const keys = generateKeyPairSync("ed25519");
   const jwk = { ...keys.publicKey.export({ format: "jwk" }), kid: "trusted", alg: "EdDSA" };
   const bytes = Buffer.from('{ "build": {"actions":[]} }');
   const payloadHash = createHash("sha256").update(bytes).digest("hex");
-  const task = taskAuthorizationData(request, idempotencyKey, now);
+  const task = taskAuthorizationData(taskRequest, idempotencyKey, now);
   const quoteId = "00000000-0000-0000-0000-000000000001";
   const requirement = {
     x402Version: 2,
@@ -62,7 +66,7 @@ function fixture(change?: (requirement: any) => void) {
   change?.(requirement);
   const header = Buffer.from(JSON.stringify(requirement)).toString("base64");
   const summary = {
-    interpretedTask: request.intent,
+    interpretedTask: taskRequest.intent,
     expectedEffects: [],
     approvals: [],
     gas: { gasUnits: "21000" },
@@ -87,6 +91,7 @@ function fixture(change?: (requirement: any) => void) {
     amountMicrousd: 1_000_000,
     request: JSON.parse(task.canonical),
   };
+  changeClaims?.(claims);
   const encode = (value: unknown) => Buffer.from(JSON.stringify(value)).toString("base64url");
   const input = `${encode({ alg: "EdDSA", kid: "trusted" })}.${encode(claims)}`;
   const jwt = `${input}.${sign(null, Buffer.from(input), keys.privateKey).toString("base64url")}`;
@@ -114,6 +119,13 @@ test("fails closed on untrusted keys, changed requests, recipient, payer, fee, o
   assert.throws(() => validateQuote(data.quote, data.header, request, { ...data.options, payer: recipient }, now));
   assert.throws(() => validateQuote(data.quote, data.header, request, data.options, now + 300));
   assert.throws(() => verifyAttestation(data.quote.attestation, { keys: [] }, `wallet:eip155:5042002:${payer}`, now));
+});
+
+test("recomputes the canonical request hash instead of trusting matching quote claims", () => {
+  const falseHash = "f".repeat(64);
+  const data = fixture(undefined, request, (claims) => { claims.requestHash = falseHash; });
+  data.quote.requestHash = falseHash;
+  assert.throws(() => validateQuote(data.quote, data.header, request, data.options, now), /Quote hash binding mismatch/);
 });
 
 test("persists one authorization through an unknown delivery and recovery", async () => {
@@ -181,6 +193,91 @@ test("prepares a verified quote with one Task signature and no payment signature
     assert.equal(signatures, 1);
     const journal = JSON.parse(await readFile(path.join(directory, "state.json"), "utf8"));
     assert.equal(journal.phase, "quoted");
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("refreshes an expiring Task authorization before the first quote", async () => {
+  const data = fixture();
+  const directory = await mkdtemp(path.join(os.tmpdir(), "arc-task-refresh-"));
+  let signatures = 0;
+  try {
+    const base = {
+      ...data.options,
+      stateDirectory: directory,
+      signTypedData: async () => {
+        signatures += 1;
+        return `0x${"aa".repeat(65)}`;
+      },
+      fetch: async () => { throw new Error("quote transport interrupted"); },
+    };
+    await assert.rejects(new TaskClient(base).prepare(request), /interrupted/);
+    const preview = await new TaskClient({
+      ...base,
+      now: () => now + 280,
+      fetch: async () => new Response(JSON.stringify(data.quote), { status: 402, headers: { "payment-required": data.header } }),
+    }).prepare(request);
+    assert.equal(preview.quoteId, data.quote.quoteId);
+    assert.equal(signatures, 2);
+    const journal = JSON.parse(await readFile(path.join(directory, "state.json"), "utf8"));
+    assert.equal(journal.idempotencyKey, idempotencyKey);
+    assert.equal(journal.requestHash, data.quote.requestHash);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("uses a dedicated review for the initial Task authorization", async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "arc-kit-authorization-"));
+  const target = "0x3333333333333333333333333333333333333333";
+  const kitRequest: TaskRequest = {
+    intent: "Pay invoice INV-1042",
+    chainId: 5_042_002,
+    sender: payer,
+    payer,
+    constraints: {
+      maxOutgoingUsdcWei: "1000000000000000000",
+      maxGasUnits: 100_000,
+      allowedTargets: [target],
+      minimumReceived: [],
+    },
+  };
+  const data = fixture(undefined, kitRequest);
+  let authorizationReviews = 0;
+  const wallet = new CircleArcWallet({
+    walletAddress: payer,
+    runner: async (_command, args) => {
+      assert.deepEqual(args.slice(0, 3), ["wallet", "sign", "typed-data"]);
+      return { stdout: `0x${"aa".repeat(65)}`, stderr: "" };
+    },
+  });
+  try {
+    const kit = ArcExecutionKit.arcTestnet({
+      endpoint: data.options.endpoint,
+      recipient,
+      maxFeeMicrousd: data.options.maxFeeMicrousd,
+      trustedJwks: data.options.trustedJwks,
+      stateDirectory: directory,
+      idempotencyKey: () => idempotencyKey,
+      now: () => now,
+      fetch: async () => new Response(JSON.stringify(data.quote), { status: 402, headers: { "payment-required": data.header } }),
+      wallet,
+      rpcUrl: "https://rpc.example",
+    });
+    const quote = await kit.prepare({
+      intent: kitRequest.intent,
+      sender: payer,
+      recipient: target,
+      amountUsdc: "1",
+      reference: "INV-1042",
+    }, (review) => {
+      authorizationReviews += 1;
+      assert.equal(review.title, "Authorize this exact Aomi Task request");
+      return true;
+    });
+    assert.equal(quote.preview.quoteId, data.quote.quoteId);
+    assert.equal(authorizationReviews, 1);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
