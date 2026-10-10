@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 import { encodeFunctionData, parseAbiItem } from "viem";
 
 export const ARC_TESTNET = "ARC-TESTNET";
@@ -103,6 +104,17 @@ function nativeAmount(valueWei: string): string {
   const whole = wei / unit;
   const fraction = (wei % unit).toString().padStart(18, "0").replace(/0+$/, "");
   return fraction ? `${whole}.${fraction}` : whole.toString();
+}
+
+function circleIdempotencyKey(seed: string): string {
+  if (!/^[A-Za-z0-9._:-]{8,128}$/.test(seed)) throw new Error("Use an explicit stable idempotency key");
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(seed)) return seed.toLowerCase();
+  const digest = createHash("sha1")
+    .update(Buffer.from("6ba7b8109dad11d180b400c04fd430c8", "hex"))
+    .update(seed)
+    .digest("hex");
+  const variant = ((Number.parseInt(digest[16], 16) & 0x3) | 0x8).toString(16);
+  return `${digest.slice(0, 8)}-${digest.slice(8, 12)}-5${digest.slice(13, 16)}-${variant}${digest.slice(17, 20)}-${digest.slice(20, 32)}`;
 }
 
 function parseJsonOutput(stdout: string): unknown {
@@ -231,9 +243,7 @@ export class CircleArcWallet {
     const recipient = address(plan.recipient);
     const amountUsdc = amount(plan.amountUsdc);
     if (!plan.invoiceId.trim()) throw new Error("invoiceId is required");
-    if (!/^[A-Za-z0-9._:-]{8,128}$/.test(plan.idempotencyKey)) {
-      throw new Error("Use an explicit stable idempotency key");
-    }
+    const idempotencyKey = circleIdempotencyKey(plan.idempotencyKey);
     const command = [
       "wallet",
       "transfer",
@@ -245,7 +255,7 @@ export class CircleArcWallet {
       "--chain",
       ARC_TESTNET,
       "--idempotency-key",
-      plan.idempotencyKey,
+      idempotencyKey,
       "--output",
       "json",
     ] as const;
@@ -273,7 +283,7 @@ export class CircleArcWallet {
     const to = address(plan.to);
     if (!/^0x(?:[0-9a-f]{2})*$/i.test(plan.data)) throw new Error("Contract calldata must be hex bytes");
     const executionAmount = nativeAmount(plan.value);
-    if (!/^[A-Za-z0-9._:-]{8,128}$/.test(plan.idempotencyKey)) throw new Error("Use an explicit stable idempotency key");
+    const idempotencyKey = circleIdempotencyKey(plan.idempotencyKey);
     const item = parseAbiItem(`function ${plan.abiFunctionSignature}`);
     const encoded = encodeFunctionData({ abi: [item], args: plan.abiParameters });
     if (encoded.toLowerCase() !== plan.data.toLowerCase()) throw new Error("ABI parameters do not reproduce the exact Aomi calldata");
@@ -283,7 +293,7 @@ export class CircleArcWallet {
       "--address", this.walletAddress,
       "--chain", ARC_TESTNET,
       "--amount", executionAmount,
-      "--idempotency-key", plan.idempotencyKey,
+      "--idempotency-key", idempotencyKey,
       "--output", "json",
     ] as const;
     return {
