@@ -355,7 +355,7 @@ export class TaskClient {
       const authorization = taskAuthorizationData(request, state.idempotencyKey, issuedAt);
       requireThat(!state.requestHash || state.requestHash === authorization.requestHash.slice(2), "Refreshed Task authorization changed the request hash");
       const signature = await this.options.signTypedData(authorization.typedData);
-      requireThat(/^0x[0-9a-f]+$/i.test(signature) && signature.length >= 132 && signature.length <= 32_770, "Invalid Task authorization signature");
+      requireThat(/^0x(?:[0-9a-f]{2})+$/i.test(signature) && signature.length >= 132 && signature.length <= 32_770, "Invalid Task authorization signature");
       state.taskAuthorization = {
         issuedAt,
         expiresAt: issuedAt + 300,

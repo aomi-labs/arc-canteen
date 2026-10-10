@@ -240,7 +240,7 @@ export class CircleArcWallet {
             "--quiet",
         ]);
         const signature = stdout.trim();
-        if (!/^0x[0-9a-f]+$/i.test(signature) || signature.length < 132 || signature.length > 32_770)
+        if (!/^0x(?:[0-9a-f]{2})+$/i.test(signature) || signature.length < 132 || signature.length > 32_770)
             throw new Error("Circle returned an invalid EIP-712 signature");
         return signature.toLowerCase();
     }
@@ -268,11 +268,15 @@ export async function verifyArcReceipt(transactionHash, rpcUrl, fetchImpl = fetc
     if (hash?.toLowerCase() !== transactionHash.toLowerCase() || !/^0x[0-9a-f]+$/i.test(blockNumber ?? "") || status !== "0x1") {
         throw new Error("Arc receipt did not prove a successful transaction");
     }
+    const rawLogs = body.result.logs;
+    if (rawLogs !== undefined && (!Array.isArray(rawLogs) || !rawLogs.every((log) => Boolean(log) && typeof log === "object" && !Array.isArray(log)))) {
+        throw new Error("Arc receipt contains malformed logs");
+    }
     return {
         transactionHash: hash.toLowerCase(),
         blockNumber: blockNumber,
         status: "0x1",
-        logs: Array.isArray(body.result.logs) ? body.result.logs : [],
+        logs: rawLogs ?? [],
     };
 }
 export async function verifyArcTransferReceipt(transactionHash, rpcUrl, expected, fetchImpl = fetch) {

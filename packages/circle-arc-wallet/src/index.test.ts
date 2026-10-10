@@ -179,6 +179,18 @@ test("asks Circle to sign the exact EIP-712 object without a bearer or local key
   assert.equal(await client.signTypedData(typedData, () => true), signature);
 });
 
+test("rejects malformed odd-length signatures and receipt logs", async () => {
+  const client = new CircleArcWallet({
+    walletAddress: wallet,
+    runner: async () => ({ stdout: `0x${"11".repeat(65)}1`, stderr: "" }),
+  });
+  await assert.rejects(client.signTypedData({ primaryType: "TaskAuthorization" }, () => true), /invalid EIP-712 signature/);
+  const hash = `0x${"77".repeat(32)}`;
+  await assert.rejects(verifyArcReceipt(hash, "https://rpc.example", async () => new Response(JSON.stringify({
+    result: { transactionHash: hash, blockNumber: "0x2c", status: "0x1", logs: [null] },
+  }))), /malformed logs/);
+});
+
 test("verifies a smart-account receipt independently and preserves application logs", async () => {
   const hash = `0x${"88".repeat(32)}`;
   const calls: string[] = [];
