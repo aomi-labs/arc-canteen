@@ -216,7 +216,12 @@ export class CircleArcWallet {
       "--output",
       "json",
     ]);
-    const payer = readString(parseJsonOutput(stdout), ["backingEOA", "backingEoa", "backing_eoa"]);
+    const balance = parseJsonOutput(stdout);
+    const account = readString(balance, ["address", "walletAddress", "wallet_address"]);
+    if (!account || address(account) !== this.walletAddress) {
+      throw new Error("Circle Gateway balance response does not match the agent wallet");
+    }
+    const payer = readString(balance, ["backingEOA", "backingEoa", "backing_eoa"]);
     if (!payer) throw new Error("Circle Gateway did not return the agent wallet backing EOA");
     return address(payer);
   }

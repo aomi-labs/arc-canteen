@@ -83,6 +83,22 @@ test("rejects a Gateway balance response without a backing EOA", async () => {
   await assert.rejects(client.gatewayPayer(), /backing EOA/);
 });
 
+test("rejects a Gateway payer response for a different wallet", async () => {
+  const client = new CircleArcWallet({
+    walletAddress: wallet,
+    runner: async () => ({
+      stdout: JSON.stringify({
+        data: {
+          address: "0xdddddddddddddddddddddddddddddddddddddddd",
+          backingEOA: "0xcccccccccccccccccccccccccccccccccccccccc",
+        },
+      }),
+      stderr: "",
+    }),
+  });
+  await assert.rejects(client.gatewayPayer(), /does not match the agent wallet/);
+});
+
 test("normalizes nested Circle transaction results", () => {
   const hash = `0x${"12".repeat(32)}`;
   assert.deepEqual(normalizeCircleTransferResult({ data: { transaction: { id: "tx-1", txHash: hash, state: "complete" } } }), {
