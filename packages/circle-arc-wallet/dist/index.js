@@ -129,6 +129,22 @@ export class CircleArcWallet {
         this.command = options.command ?? "circle";
         this.runner = options.runner ?? runCommand;
     }
+    async gatewayPayer() {
+        const { stdout } = await this.runner(this.command, [
+            "gateway",
+            "balance",
+            "--address",
+            this.walletAddress,
+            "--chain",
+            ARC_TESTNET,
+            "--output",
+            "json",
+        ]);
+        const payer = readString(parseJsonOutput(stdout), ["backingEOA", "backingEoa", "backing_eoa"]);
+        if (!payer)
+            throw new Error("Circle Gateway did not return the agent wallet backing EOA");
+        return address(payer);
+    }
     reviewTransfer(plan) {
         if (plan.chainId !== ARC_TESTNET_CHAIN_ID)
             throw new Error("Only Arc Testnet is supported");

@@ -59,6 +59,30 @@ test("never invokes Circle after rejection", async () => {
   );
 });
 
+test("resolves the distinct Gateway payer behind a Circle Agent Wallet", async () => {
+  const payer = "0xcccccccccccccccccccccccccccccccccccccccc";
+  const client = new CircleArcWallet({
+    walletAddress: wallet,
+    runner: async (command, args) => {
+      assert.equal(command, "circle");
+      assert.deepEqual(args, [
+        "gateway", "balance", "--address", wallet,
+        "--chain", "ARC-TESTNET", "--output", "json",
+      ]);
+      return { stdout: JSON.stringify({ data: { address: wallet, backingEOA: payer } }), stderr: "" };
+    },
+  });
+  assert.equal(await client.gatewayPayer(), payer);
+});
+
+test("rejects a Gateway balance response without a backing EOA", async () => {
+  const client = new CircleArcWallet({
+    walletAddress: wallet,
+    runner: async () => ({ stdout: JSON.stringify({ data: { address: wallet } }), stderr: "" }),
+  });
+  await assert.rejects(client.gatewayPayer(), /backing EOA/);
+});
+
 test("normalizes nested Circle transaction results", () => {
   const hash = `0x${"12".repeat(32)}`;
   assert.deepEqual(normalizeCircleTransferResult({ data: { transaction: { id: "tx-1", txHash: hash, state: "complete" } } }), {
