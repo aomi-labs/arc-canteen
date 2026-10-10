@@ -524,7 +524,7 @@ export function parseSmartAccountArtifact(
   requireThat(summary.senderBinding?.executionKind === "smart_account_calls" && summary.senderBinding?.simulationScope === "inner_calls_only", "Artifact does not state the smart-account simulation boundary");
   requireThat(typeof summary.authorizationIdentity === "string" && summary.authorizationIdentity.length > 4, "Artifact is missing wallet authorization identity");
   requireThat(build.version === 2 && build.status === "simulated" && build.expiresAt > now + 15, "Task build is not a live simulated Build");
-  requireThat(typeof build.digest === "string" && /^[0-9a-f]{64}$/i.test(build.digest), "Task build digest is invalid");
+  const buildDigest = sha256Digest(build.digest);
   requireThat(Array.isArray(artifact.walletCalls) && artifact.walletCalls.length > 0 && artifact.walletCalls.length <= 16, "Smart-account artifact must expose ordered wallet calls");
   const requestedCalls = request.calls;
   requireThat(Array.isArray(requestedCalls) && requestedCalls.length === artifact.walletCalls.length, "Artifact call count differs from the signed request");
@@ -566,7 +566,7 @@ export function parseSmartAccountArtifact(
     counterfactual: summary.senderBinding.counterfactual === true,
     expiresAt: build.expiresAt,
     artifactHash: quote.payloadHash,
-    buildDigest: build.digest.toLowerCase(),
+    buildDigest,
     calls,
     summary,
   };
@@ -637,6 +637,13 @@ function exactWei(value: unknown): bigint {
   return BigInt(value);
 }
 
+function sha256Digest(value: unknown): string {
+  requireThat(typeof value === "string", "Task build digest is invalid");
+  const match = /^(?:sha256:)?([0-9a-f]{64})$/i.exec(value);
+  requireThat(match, "Task build digest is invalid");
+  return match[1].toLowerCase();
+}
+
 export function parseArcTransferArtifact(
   bytes: Buffer,
   request: TaskRequest,
@@ -657,7 +664,7 @@ export function parseArcTransferArtifact(
   requireThat(stable(summary) === stable(quote.summary), "Paid artifact summary differs from the attested quote preview");
   requireThat(build.version === 2 && build.status === "simulated", "Task build is not a supported simulated Build");
   requireThat(Number.isSafeInteger(build.expiresAt) && build.expiresAt > now + 15, "Task build has expired or expires too soon");
-  requireThat(typeof build.digest === "string" && /^[0-9a-f]{64}$/i.test(build.digest), "Task build digest is invalid");
+  const buildDigest = sha256Digest(build.digest);
   requireThat(Array.isArray(build.actions) && build.actions.length === 1, "Execution Kit V1 requires exactly one action");
   const action = object(build.actions[0], "Task action");
   const sender = address(request.sender) as `0x${string}`;
@@ -694,7 +701,7 @@ export function parseArcTransferArtifact(
     amountWei,
     reference,
     artifactHash: quote.payloadHash,
-    buildDigest: build.digest.toLowerCase(),
+    buildDigest,
     expiresAt: build.expiresAt,
     simulation: build.simulation,
     summary,
