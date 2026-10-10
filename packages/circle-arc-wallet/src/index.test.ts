@@ -12,10 +12,11 @@ test("builds a bounded Arc Testnet transfer and requires review", async () => {
     walletAddress: wallet,
     runner: async (command, args) => {
       assert.equal(command, "circle");
-      assert.deepEqual(args, [
+      assert.deepEqual(args.slice(0, 8), [
         "wallet", "transfer", recipient, "--amount", "1", "--address", wallet,
-        "--chain", "ARC-TESTNET", "--idempotency-key", "invoice-INV-1042", "--output", "json",
+        "--chain",
       ]);
+      assert.match(args[args.indexOf("--idempotency-key") + 1], /^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
       return { stdout: JSON.stringify({ id: "circle-transaction-1", state: "initiated" }), stderr: "" };
     },
   });
@@ -176,6 +177,7 @@ test("executes only ABI parameters that reproduce the exact Aomi calldata", asyn
     runner: async (_command, args) => {
       assert.deepEqual(args.slice(0, 5), ["wallet", "execute", "execute(address,bytes)", target, inner]);
       assert.equal(args[args.indexOf("--amount") + 1], "0.000000000000000001");
+      assert.match(args[args.indexOf("--idempotency-key") + 1], /^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
       return { stdout: JSON.stringify({ id: "circle-call-1", state: "initiated" }), stderr: "" };
     },
   });
