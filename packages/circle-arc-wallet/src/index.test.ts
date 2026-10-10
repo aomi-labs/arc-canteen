@@ -12,11 +12,12 @@ test("builds a bounded Arc Testnet transfer and requires review", async () => {
     walletAddress: wallet,
     runner: async (command, args) => {
       assert.equal(command, "circle");
-      assert.deepEqual(args.slice(0, 8), [
+      assert.deepEqual(args.slice(0, 9), [
         "wallet", "transfer", recipient, "--amount", "1", "--address", wallet,
-        "--chain",
+        "--chain", "ARC-TESTNET",
       ]);
       assert.match(args[args.indexOf("--idempotency-key") + 1], /^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+      assert.deepEqual(args.slice(-2), ["--output", "json"]);
       return { stdout: JSON.stringify({ id: "circle-transaction-1", state: "initiated" }), stderr: "" };
     },
   });
