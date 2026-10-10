@@ -420,7 +420,7 @@ export function parseSmartAccountArtifact(bytes, request, quote, now = Math.floo
             && exactWei(expected.value).toString() === value, "Wallet call differs from the signed Task request");
         requireThat(address(action.from) === address(request.sender) && address(action.to) === to &&
             String(action.data).toLowerCase() === call.data.toLowerCase() && exactWei(action.value).toString() === value, "Wallet call differs from the frozen action");
-        requireThat(step.step === index + 1 && step.execution?.status === "succeeded" &&
+        requireThat(step.step === index + 1 && executionSucceeded(step.execution?.status) &&
             address(step.call?.to) === to && String(step.call?.data).toLowerCase() === call.data.toLowerCase() &&
             exactWei(step.call?.value).toString() === value, "Wallet call differs from successful simulation evidence");
         return { to, data: call.data.toLowerCase(), value };
@@ -448,6 +448,9 @@ export function taskClientWithCircle(options, wallet, approvePurchase) {
 function object(value, name) {
     requireThat(Boolean(value) && typeof value === "object" && !Array.isArray(value), `${name} must be an object`);
     return value;
+}
+function executionSucceeded(value) {
+    return value === "succeeded" || (Boolean(value) && typeof value === "object" && !Array.isArray(value) && value.kind === "succeeded");
 }
 function usdcWei(value) {
     requireThat(/^(0|[1-9][0-9]*)(\.[0-9]{1,6})?$/.test(value), "USDC amount must have at most six decimals");
@@ -501,7 +504,7 @@ export function parseArcTransferArtifact(bytes, request, quote, amountUsdc, now 
     requireThat(Array.isArray(report.steps) && report.steps.length === 1, "Task report requires one successful step");
     const step = object(report.steps[0], "Simulation step");
     const call = object(step.call, "Simulation call");
-    requireThat(step.chain_id === ARC_TESTNET_CHAIN_ID && step.execution?.status === "succeeded" && address(call.to) === recipient &&
+    requireThat(step.chain_id === ARC_TESTNET_CHAIN_ID && executionSucceeded(step.execution?.status) && address(call.to) === recipient &&
         exactWei(call.value) === BigInt(amountWei) && call.data === "0x", "Simulation evidence differs from the reviewed transfer");
     return {
         chainId: ARC_TESTNET_CHAIN_ID,

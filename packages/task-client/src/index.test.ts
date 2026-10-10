@@ -329,7 +329,7 @@ test("accepts only one exact successful Arc native-USDC artifact", () => {
     },
     report: {
       contexts: [{ chain_id: 5_042_002, sender, block_number: 123, block_hash: `0x${"ab".repeat(32)}`, engine: "fixture", rules: "fixture", balance_overrides: [] }],
-      steps: [{ step: 1, chain_id: 5_042_002, label: "invoice", call: { to: target, value: amountWei, data: "0x", gas_limit: 21_000 }, execution: { status: "succeeded", return_data: "0x", gas_used: 21_000, logs: [], native_balance: null } }],
+      steps: [{ step: 1, chain_id: 5_042_002, label: "invoice", call: { to: target, value: amountWei, data: "0x", gas_limit: 21_000 }, execution: { status: { kind: "succeeded" }, return_data: "0x", gas_used: 21_000, logs: [], native_balance: null } }],
     },
     summary,
   };
@@ -340,6 +340,9 @@ test("accepts only one exact successful Arc native-USDC artifact", () => {
   assert.equal(plan.buildDigest, "b".repeat(64));
   artifact.build.actions[0].to = recipient;
   assert.throws(() => parseArcTransferArtifact(Buffer.from(JSON.stringify(artifact)), boundedRequest, quote, "1", now), /does not match/);
+  artifact.build.actions[0].to = target;
+  artifact.report.steps[0].execution.status.kind = "reverted";
+  assert.throws(() => parseArcTransferArtifact(Buffer.from(JSON.stringify(artifact)), boundedRequest, quote, "1", now), /differs/);
 });
 
 test("accepts exact ordered smart-account calls and rejects byte drift", () => {
@@ -360,7 +363,7 @@ test("accepts exact ordered smart-account calls and rejects byte drift", () => {
   };
   const artifact = {
     build: { version: 2, status: "simulated", expiresAt: now + 300, digest: `sha256:${"a".repeat(64)}`, actions: [{ chain_id: 5_042_002, from: payer, ...call }] },
-    report: { steps: [{ step: 1, execution: { status: "succeeded" }, call }] },
+    report: { steps: [{ step: 1, execution: { status: { kind: "succeeded" } }, call }] },
     summary,
     walletCalls: [call],
   };
@@ -368,6 +371,9 @@ test("accepts exact ordered smart-account calls and rejects byte drift", () => {
   assert.deepEqual(plan.calls, [call]);
   assert.equal(plan.buildDigest, "a".repeat(64));
   artifact.walletCalls[0].data = "0xdeadbeef";
+  assert.throws(() => parseSmartAccountArtifact(Buffer.from(JSON.stringify(artifact)), smartRequest, quote, now), /differs/);
+  artifact.walletCalls[0].data = call.data;
+  artifact.report.steps[0].execution.status.kind = "reverted";
   assert.throws(() => parseSmartAccountArtifact(Buffer.from(JSON.stringify(artifact)), smartRequest, quote, now), /differs/);
 });
 

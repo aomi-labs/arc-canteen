@@ -550,7 +550,7 @@ export function parseSmartAccountArtifact(
       "Wallet call differs from the frozen action",
     );
     requireThat(
-      step.step === index + 1 && step.execution?.status === "succeeded" &&
+      step.step === index + 1 && executionSucceeded(step.execution?.status) &&
       address(step.call?.to) === to && String(step.call?.data).toLowerCase() === call.data.toLowerCase() &&
       exactWei(step.call?.value).toString() === value,
       "Wallet call differs from successful simulation evidence",
@@ -624,6 +624,10 @@ function object(value: unknown, name: string): Record<string, any> {
   return value as Record<string, any>;
 }
 
+function executionSucceeded(value: unknown): boolean {
+  return value === "succeeded" || (Boolean(value) && typeof value === "object" && !Array.isArray(value) && (value as Record<string, unknown>).kind === "succeeded");
+}
+
 function usdcWei(value: string): string {
   requireThat(/^(0|[1-9][0-9]*)(\.[0-9]{1,6})?$/.test(value), "USDC amount must have at most six decimals");
   const [whole, fraction = ""] = value.split(".");
@@ -689,7 +693,7 @@ export function parseArcTransferArtifact(
   const step = object(report.steps[0], "Simulation step");
   const call = object(step.call, "Simulation call");
   requireThat(
-    step.chain_id === ARC_TESTNET_CHAIN_ID && step.execution?.status === "succeeded" && address(call.to) === recipient &&
+    step.chain_id === ARC_TESTNET_CHAIN_ID && executionSucceeded(step.execution?.status) && address(call.to) === recipient &&
     exactWei(call.value) === BigInt(amountWei) && call.data === "0x",
     "Simulation evidence differs from the reviewed transfer",
   );
