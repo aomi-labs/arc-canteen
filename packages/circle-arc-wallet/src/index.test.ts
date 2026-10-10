@@ -159,7 +159,7 @@ test("executes only ABI parameters that reproduce the exact Aomi calldata", asyn
 test("asks Circle to sign the exact EIP-712 object without a bearer or local key", async () => {
   const signature = `0x${"11".repeat(65)}`;
   const typedData = {
-    domain: { name: "Aomi Task API", chainId: ARC_TESTNET_CHAIN_ID },
+    domain: { name: "Aomi Task API", version: "1", chainId: ARC_TESTNET_CHAIN_ID, salt: `0x${"22".repeat(32)}` },
     types: { TaskAuthorization: [{ name: "chainId", type: "uint256" }] },
     primaryType: "TaskAuthorization",
     message: { chainId: BigInt(ARC_TESTNET_CHAIN_ID) },
@@ -170,6 +170,15 @@ test("asks Circle to sign the exact EIP-712 object without a bearer or local key
       assert.deepEqual(args.slice(0, 3), ["wallet", "sign", "typed-data"]);
       assert.deepEqual(JSON.parse(args[3]), {
         ...typedData,
+        types: {
+          EIP712Domain: [
+            { name: "name", type: "string" },
+            { name: "version", type: "string" },
+            { name: "chainId", type: "uint256" },
+            { name: "salt", type: "bytes32" },
+          ],
+          ...typedData.types,
+        },
         message: { chainId: String(ARC_TESTNET_CHAIN_ID) },
       });
       assert.deepEqual(args.slice(4), ["--address", wallet, "--chain", "ARC-TESTNET", "--quiet"]);
@@ -184,11 +193,29 @@ test("rejects malformed odd-length signatures and receipt logs", async () => {
     walletAddress: wallet,
     runner: async () => ({ stdout: `0x${"11".repeat(65)}1`, stderr: "" }),
   });
-  await assert.rejects(client.signTypedData({ primaryType: "TaskAuthorization" }, () => true), /invalid EIP-712 signature/);
+  await assert.rejects(client.signTypedData({
+    domain: { name: "Aomi Task API", chainId: ARC_TESTNET_CHAIN_ID },
+    types: { TaskAuthorization: [] },
+    primaryType: "TaskAuthorization",
+    message: {},
+  }, () => true), /invalid EIP-712 signature/);
   const hash = `0x${"77".repeat(32)}`;
   await assert.rejects(verifyArcReceipt(hash, "https://rpc.example", async () => new Response(JSON.stringify({
     result: { transactionHash: hash, blockNumber: "0x2c", status: "0x1", logs: [null] },
   }))), /malformed logs/);
+});
+
+test("rejects malformed typed data before invoking Circle", async () => {
+  let invoked = false;
+  const client = new CircleArcWallet({
+    walletAddress: wallet,
+    runner: async () => {
+      invoked = true;
+      return { stdout: "", stderr: "" };
+    },
+  });
+  await assert.rejects(client.signTypedData({ primaryType: "TaskAuthorization" }, () => true), /requires domain and types objects/);
+  assert.equal(invoked, false);
 });
 
 test("verifies a smart-account receipt independently and preserves application logs", async () => {

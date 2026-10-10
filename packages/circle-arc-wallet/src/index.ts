@@ -4,6 +4,14 @@ import { encodeFunctionData, parseAbiItem } from "viem";
 export const ARC_TESTNET = "ARC-TESTNET";
 export const ARC_TESTNET_CHAIN_ID = 5_042_002;
 
+const EIP712_DOMAIN_FIELDS = [
+  ["name", "string"],
+  ["version", "string"],
+  ["chainId", "uint256"],
+  ["verifyingContract", "address"],
+  ["salt", "bytes32"],
+] as const;
+
 export interface ArcTransferPlan {
   chainId: typeof ARC_TESTNET_CHAIN_ID;
   recipient: `0x${string}`;
@@ -105,6 +113,29 @@ function parseJsonOutput(stdout: string): unknown {
   } catch {
     throw new Error("Circle CLI did not return JSON output");
   }
+}
+
+function circleTypedData(typedData: unknown): unknown {
+  if (!typedData || typeof typedData !== "object" || Array.isArray(typedData)) {
+    throw new Error("EIP-712 typed data must be an object");
+  }
+  const input = typedData as Record<string, unknown>;
+  const domain = input.domain;
+  const types = input.types;
+  if (!domain || typeof domain !== "object" || Array.isArray(domain)
+    || !types || typeof types !== "object" || Array.isArray(types)) {
+    throw new Error("EIP-712 typed data requires domain and types objects");
+  }
+  const domainRecord = domain as Record<string, unknown>;
+  return {
+    ...input,
+    types: {
+      EIP712Domain: EIP712_DOMAIN_FIELDS
+        .filter(([name]) => domainRecord[name] !== undefined)
+        .map(([name, type]) => ({ name, type })),
+      ...types as Record<string, unknown>,
+    },
+  };
 }
 
 function readString(record: unknown, keys: readonly string[]): string | undefined {
@@ -312,7 +343,7 @@ export class CircleArcWallet {
       "wallet",
       "sign",
       "typed-data",
-      JSON.stringify(typedData, (_, value) => (typeof value === "bigint" ? value.toString() : value)),
+      JSON.stringify(circleTypedData(typedData), (_, value) => (typeof value === "bigint" ? value.toString() : value)),
       "--address",
       this.walletAddress,
       "--chain",
