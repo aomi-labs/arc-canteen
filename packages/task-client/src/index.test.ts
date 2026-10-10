@@ -325,7 +325,7 @@ test("accepts only one exact successful Arc native-USDC artifact", () => {
       actions: [{ chain_id: 5_042_002, from: sender, to: target, value: amountWei, data: "0x", label: "invoice", kind: "native_transfer" }],
       simulation: { status: "passed", balanceChanges: [], approvals: [], fees: [], warnings: [], guards: [], gas: { units: "21000" }, logs: [] },
       expiresAt: now + 300,
-      digest: "b".repeat(64),
+      digest: `sha256:${"b".repeat(64)}`,
     },
     report: {
       contexts: [{ chain_id: 5_042_002, sender, block_number: 123, block_hash: `0x${"ab".repeat(32)}`, engine: "fixture", rules: "fixture", balance_overrides: [] }],
@@ -337,6 +337,7 @@ test("accepts only one exact successful Arc native-USDC artifact", () => {
   const plan = parseArcTransferArtifact(bytes, boundedRequest, quote, "1", now);
   assert.equal(plan.recipient, target);
   assert.equal(plan.amountWei, amountWei);
+  assert.equal(plan.buildDigest, "b".repeat(64));
   artifact.build.actions[0].to = recipient;
   assert.throws(() => parseArcTransferArtifact(Buffer.from(JSON.stringify(artifact)), boundedRequest, quote, "1", now), /does not match/);
 });
@@ -358,13 +359,14 @@ test("accepts exact ordered smart-account calls and rejects byte drift", () => {
     expiresAt: now + 300,
   };
   const artifact = {
-    build: { version: 2, status: "simulated", expiresAt: now + 300, digest: "a".repeat(64), actions: [{ chain_id: 5_042_002, from: payer, ...call }] },
+    build: { version: 2, status: "simulated", expiresAt: now + 300, digest: `sha256:${"a".repeat(64)}`, actions: [{ chain_id: 5_042_002, from: payer, ...call }] },
     report: { steps: [{ step: 1, execution: { status: "succeeded" }, call }] },
     summary,
     walletCalls: [call],
   };
   const plan = parseSmartAccountArtifact(Buffer.from(JSON.stringify(artifact)), smartRequest, quote, now);
   assert.deepEqual(plan.calls, [call]);
+  assert.equal(plan.buildDigest, "a".repeat(64));
   artifact.walletCalls[0].data = "0xdeadbeef";
   assert.throws(() => parseSmartAccountArtifact(Buffer.from(JSON.stringify(artifact)), smartRequest, quote, now), /differs/);
 });
