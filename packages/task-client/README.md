@@ -15,8 +15,6 @@ const kit = ArcExecutionKit.arcTestnet({
   // Preview configuration: these values must come from the Aomi deployment
   // you independently trust. There are no production defaults yet.
   endpoint: "https://YOUR_AOMI_API/v1/task/build",
-  token: () => process.env.AOMI_TASK_TOKEN!,
-  subject: "YOUR_AUTHENTICATED_SUBJECT",
   recipient: "YOUR_EXPECTED_AOMI_SELLER",
   trustedJwks: JSON.parse(await readFile("./trusted-aomi-jwks.json", "utf8")),
   maxFeeMicrousd: 1_100_000n,
@@ -31,19 +29,22 @@ const quote = await kit.prepare({
   sender: wallet.walletAddress,
   recipient: "0x1111111111111111111111111111111111111111",
   amountUsdc: "1",
-});
+}, async (review) => showTaskAuthorizationReview(review));
 
-// Approval 1: buying the plan from Aomi.
+// This first review signs only the exact Task request. It grants no spending
+// or execution authority.
+
+// Approval 2: buying the plan from Aomi with a separate Gateway signature.
 const artifact = await quote.purchase(async (preview) => showAomiServiceQuote(preview));
 if (artifact.status === "pending") throw new Error("Re-run purchase to reconcile the same authorization");
 
-// Approval 2: paying the vendor. The package accepts only one simulated native
+// Approval 3: paying the vendor. The package accepts only one simulated native
 // USDC transfer whose sender, target and value match the original constraints.
 const result = await artifact.execute(async (review) => showCircleTransferReview(review));
 console.log(result.receipt.transactionHash);
 ```
 
-The private state directory stores the Task purchase journal and a separate execution journal. Retries reuse the same Task authorization and Circle idempotency key. The final record correlates the Aomi service-purchase receipt, Circle submission, and independently verified Arc transaction.
+The private state directory stores the Task purchase journal and a separate execution journal. Before a quote exists, an expiring Task authorization is refreshed with the same request hash and idempotency key. After a quote exists, recovery reuses its original authorization and payment proof rather than creating another purchase. The final record correlates the Aomi service-purchase receipt, Circle submission, and independently verified Arc transaction.
 
 ## V1 fail-closed scope
 
@@ -58,4 +59,4 @@ Contract calls, ERC-20 approvals, batches, swaps, bridges, arbitrary calldata, m
 
 ## Preview status
 
-There is no confirmed public hosted Task endpoint, OAuth resource, seller address, or trusted JWKS distribution for this kit today. The package is therefore a tested preview, not a runnable hosted quickstart. Do not substitute values learned from an untrusted quote.
+The Task API is signature-only: Circle signs each exact EIP-712 Task request, then separately signs the Gateway payment and final execution. No login, OAuth resource, access token, refresh token, API key, or bearer is used. A hosted endpoint still needs an independently provisioned seller address and trusted attestation JWKS; do not substitute values learned from an untrusted quote.

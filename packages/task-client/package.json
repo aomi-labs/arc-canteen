@@ -9,6 +9,8 @@
     "test": "tsx --test src/index.test.ts"
   },
   "dependencies": {
-    "@arc-canteen/circle-arc-wallet": "workspace:*"
+    "@arc-canteen/circle-arc-wallet": "workspace:*",
+    "canonicalize": "2.1.0",
+    "viem": "^2.45.0"
   }
 }

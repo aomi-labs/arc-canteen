@@ -2,6 +2,14 @@
   "name": "arc-canteen",
   "version": "0.2.0",
   "private": true,
+  "exports": {
+    "./task-client": "./packages/task-client/dist/index.js",
+    "./circle-arc-wallet": "./packages/circle-arc-wallet/dist/index.js"
+  },
+  "files": [
+    "packages/task-client/dist",
+    "packages/circle-arc-wallet/dist"
+  ],
   "packageManager": "pnpm@10.32.1",
   "scripts": {
     "dev": "pnpm --filter @arc-canteen/site dev",
@@ -14,9 +22,11 @@
     "check:production": "node scripts/verify-production.mjs"
   },
   "dependencies": {
+    "canonicalize": "2.1.0",
     "next": "16.1.0",
     "react": "19.2.7",
-    "react-dom": "19.2.7"
+    "react-dom": "19.2.7",
+    "viem": "^2.45.0"
   },
   "devDependencies": {
     "@types/node": "24.10.4",
