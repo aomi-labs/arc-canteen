@@ -64,3 +64,7 @@ pnpm check:production
 `INV-1042` is the only fixture eligible for preparation. `INV-1043` must refuse because the vendor wallet changed. `INV-1044` must refuse because payment is already confirmed. The hosted agent has exercised all three against the public fixture API; this is not evidence of a live Arc transfer.
 
 Repository checks never submit a funded-wallet transaction or mainnet action.
+
+## License
+
+This public builder kit is available under the [MIT License](LICENSE). The hosted Aomi Task runtime is a separate service; its backend source is not included in this repository. Third-party dependencies retain their own licenses.
