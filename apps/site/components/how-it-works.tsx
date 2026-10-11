@@ -7,23 +7,25 @@ type Diagram = "execution" | "agent";
 
 const sequenceActors = [
   ["Your agent", 80],
-  ["Aomi Task API", 240],
-  ["x402 service", 400],
-  ["Circle wallet", 560],
-  ["Builder", 720],
+  ["Circle wallet", 240],
+  ["Aomi Task API", 400],
+  ["Aomi runtime", 560],
+  ["Gateway", 720],
   ["Arc", 880],
   ["Your app", 1040],
 ] as const;
 
 const sequenceMessages = [
-  [0, 1, "Intent + exact constraints", false],
-  [1, 0, "Attested Task + x402 quote", true],
-  [0, 2, "Approve + purchase plan", false],
-  [2, 3, "Simulate bounded transfer", false],
-  [3, 4, "Show recipient, amount + chain", false],
-  [4, 3, "Review + sign", false],
-  [3, 5, "Submit transaction", false],
-  [5, 6, "Verified receipt", true],
+  [0, 1, "Sign exact Task request", false],
+  [0, 2, "Request + EIP-712 authorization", false],
+  [2, 3, "Simulate exact ordered calls", false],
+  [2, 0, "Attested 402 quote", true],
+  [0, 1, "Sign Gateway payment", false],
+  [2, 4, "Submit separate payment", false],
+  [2, 0, "Immutable artifact", true],
+  [0, 1, "Sign exact execution", false],
+  [1, 5, "Submit verified calls", false],
+  [5, 6, "Receipt + contract events", true],
 ] as const;
 
 export function HowItWorks({ diagram }: { diagram: Diagram }) {
@@ -63,7 +65,7 @@ export function ExecutionSequence() {
           aria-labelledby="execution-sequence-title execution-sequence-description"
         >
           <title id="execution-sequence-title">Execution Kit sequence diagram</title>
-          <desc id="execution-sequence-description">Messages travel between your agent, the Aomi Task API, the x402 service, Circle Wallet, the builder, Arc, and your application.</desc>
+          <desc id="execution-sequence-description">Your agent obtains separate Circle Wallet signatures for Task authorization, Gateway payment, and final Arc execution. Aomi simulates exact calls and returns an immutable artifact.</desc>
           <defs>
             <marker id="sequence-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
               <path d="M 0 0 L 10 5 L 0 10 z" />
@@ -79,7 +81,7 @@ export function ExecutionSequence() {
           {sequenceMessages.map(([from, to, message, response], index) => {
             const x1 = sequenceActors[from][1];
             const x2 = sequenceActors[to][1];
-            const y = 118 + index * 76;
+            const y = 100 + index * 58;
             return (
               <g key={message}>
                 <text className={styles.messageIndex} x="4" y={y + 4}>{String(index + 1).padStart(2, "0")}</text>
@@ -90,7 +92,7 @@ export function ExecutionSequence() {
           })}
         </svg>
       </div>
-      <p className={styles.boundary}><strong>Control boundary:</strong> Aomi prepares and verifies the service result. Circle Wallet retains review and signing authority. Your app marks completion only after the Arc receipt is independently verified.</p>
+      <p className={styles.boundary}><strong>Control boundary:</strong> signing the Task grants no spending or execution authority. Aomi simulates the inner calls; Circle Wallet separately signs payment and execution. Your app marks completion only after the Arc receipt and expected events independently verify.</p>
     </div>
   );
 }

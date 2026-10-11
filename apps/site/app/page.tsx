@@ -6,7 +6,7 @@ import { ExternalLink } from "@/components/site-shell";
 import styles from "./home.module.css";
 
 const paths = [
-  { have: "An agent or decision engine", use: "Aomi × Circle Execution Kit", action: "Connect the Task API client", status: "Preview", href: "/execution-kit", tone: "orange" },
+  { have: "An agent or decision engine", use: "Aomi × Circle Execution Kit", action: "Connect the Task API client", status: "Testnet proven", href: "/execution-kit", tone: "orange" },
   { have: "Product APIs, but no agent", use: "Arc Agent-in-a-Box", action: "Deploy the invoice starter", status: "Live", href: "/agent-in-a-box", tone: "blue" },
 ];
 
@@ -41,12 +41,12 @@ export default function Home() {
 
       <section className="runbook-section" id="execution">
         <div className="container section-grid">
-          <header className={`section-index ${styles.sectionTitle}`}><span>02</span><div><p className="eyebrow">Execution Kit · preview</p><h2>Bring your agent. 10x execution capability on Arc via x402 Service.</h2><HowItWorks diagram="execution" /></div></header>
+          <header className={`section-index ${styles.sectionTitle}`}><span>02</span><div><p className="eyebrow">Execution Kit · Arc Testnet proven</p><h2>Bring your agent. Buy a verified execution artifact on Arc.</h2><HowItWorks diagram="execution" /></div></header>
           <div className="instruction-list">
-            <div className="instruction"><b>01</b><div><strong>Submit a bounded intent</strong><p>Your existing agent sends the exact action and constraints to the Aomi Task API.</p></div><span>Input: agent decision</span></div>
-            <div className="instruction"><b>02</b><div><strong>Verify the Task response</strong><p>The client checks the attestation, identities, chain, fee cap, recipient, and amount.</p></div><span>Fail closed</span></div>
-            <div className="instruction"><b>03</b><div><strong>Review before signing</strong><p>Circle Agent Wallet shows the exact transfer and retains signing authority.</p></div><span>Human approval</span></div>
-            <div className="instruction"><b>04</b><div><strong>Confirm the Arc receipt</strong><p>Your app marks work complete only after independent receipt verification.</p></div><Link href="/execution-kit">Open full brief →</Link></div>
+            <div className="instruction"><b>01</b><div><strong>Sign the exact Task request</strong><p>Your wallet authorizes one canonical request—without an Aomi login, session, API key, or bearer.</p></div><span>Input: agent decision</span></div>
+            <div className="instruction"><b>02</b><div><strong>Buy the simulated artifact</strong><p>Aomi returns a request-bound 402 quote; a separate Gateway signature purchases the immutable result.</p></div><span>Recoverable purchase</span></div>
+            <div className="instruction"><b>03</b><div><strong>Compare before signing</strong><p>Your application verifies the exact ordered contract calls before Circle signs execution.</p></div><span>Fail closed</span></div>
+            <div className="instruction"><b>04</b><div><strong>Confirm the Arc receipt</strong><p>Your app marks work complete only after independent receipt and contract-event verification.</p></div><Link href="/execution-kit">Open full brief →</Link></div>
           </div>
         </div>
       </section>

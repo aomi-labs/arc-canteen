@@ -1,14 +1,21 @@
 # Aomi × Circle Execution Kit
 
-This package is the Node-first client for an existing agent or decision engine. It keeps the two financial approvals separate:
+This package is the Node-first client for an existing agent or decision engine. It keeps three wallet authorities separate:
 
-1. review and purchase the immutable Aomi Task plan;
-2. review and execute the exact vendor transfer with Circle Agent Wallet.
+1. authorize one exact Task request;
+2. purchase the immutable Aomi Task artifact;
+3. review and execute the exact calls with Circle Agent Wallet.
+
+Install the reviewed monorepo package from its immutable HTTPS source; it is not published to npm:
+
+```sh
+npm install https://github.com/aomi-labs/arc-canteen/archive/71e08b4f3e18b1b4dd0a5b7d3845b57165e48390.tar.gz
+```
 
 ```ts
 import { readFile } from "node:fs/promises";
-import { ArcExecutionKit } from "@arc-canteen/task-client";
-import { CircleArcWallet } from "@arc-canteen/circle-arc-wallet";
+import { ArcExecutionKit } from "arc-canteen/task-client";
+import { CircleArcWallet } from "arc-canteen/circle-arc-wallet";
 
 const wallet = new CircleArcWallet({ walletAddress: process.env.CIRCLE_WALLET_ADDRESS! });
 const kit = ArcExecutionKit.arcTestnet({
@@ -57,6 +64,6 @@ The private state directory stores the Task purchase journal and a separate exec
 
 Contract calls, ERC-20 approvals, batches, swaps, bridges, arbitrary calldata, mainnet, and autonomous signing are rejected or outside this client.
 
-## Preview status
+## Deployment status
 
-The Task API is signature-only: Circle signs each exact EIP-712 Task request, then separately signs the Gateway payment and final execution. No login, OAuth resource, access token, refresh token, API key, or bearer is used. A hosted endpoint still needs an independently provisioned seller address and trusted attestation JWKS; do not substitute values learned from an untrusted quote.
+The Task API is signature-only: Circle signs each exact EIP-712 Task request, then separately signs the Gateway payment and final execution. No login, OAuth resource, access token, refresh token, API key, or bearer is used. The staging runtime and `smart_account_calls` flow have passed a complete Arc Testnet acceptance run. Aomi must provision the routed staging endpoint, seller address, and trusted attestation JWKS; public self-service routing, production Task rollout, and mainnet Task payments remain disabled.
