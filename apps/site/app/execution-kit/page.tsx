@@ -8,55 +8,66 @@ import "./execution-kit.css";
 export const metadata: Metadata = { title: "Aomi × Circle Execution Kit" };
 
 const integration = `// server/execution.ts
-import { ArcExecutionKit } from "@arc-canteen/task-client";
-import { CircleArcWallet } from "@arc-canteen/circle-arc-wallet";
-import { executionConfig, requireApproval } from "./execution-config";
+import { readFile } from "node:fs/promises";
+import { TaskClient, parseSmartAccountArtifact } from "arc-canteen/task-client";
+import { CircleArcWallet } from "arc-canteen/circle-arc-wallet";
 
-const wallet = new CircleArcWallet({
-  walletAddress: process.env.CIRCLE_WALLET_ADDRESS!,
-});
+const wallet = new CircleArcWallet({ walletAddress: circleWallet });
+const payer = await wallet.gatewayPayer();
+const calls = planCalls(decision); // exact ordered { to, data, value }[]
 
-const kit = ArcExecutionKit.arcTestnet({
-  ...executionConfig,
-  wallet,
-});
-
-const quote = await kit.prepare({
-  intent: agentDecision,
-  reference: "INV-1042",
+const request = {
+  executionKind: "smart_account_calls",
+  intent: decision.summary,
+  chainId: 5042002,
   sender: wallet.walletAddress,
-  recipient: "0x1111111111111111111111111111111111111111",
-  amountUsdc: "1",
+  payer,
+  calls,
+  constraints: decision.constraints,
+};
+
+const client = new TaskClient({
+  endpoint: process.env.AOMI_TASK_ENDPOINT!,
+  recipient: process.env.AOMI_TASK_SELLER!,
+  trustedJwks: JSON.parse(await readFile("./trusted-aomi-jwks.json", "utf8")),
+  maxFeeMicrousd: 1_100_000n,
+  stateDirectory: "/private/task-state",
+  payer,
+  signTypedData: (data) => wallet.signTypedData(data, showReview),
 });
 
-// Approval 1: purchase the immutable Aomi service plan.
-const artifact = await quote.purchase(requireApproval);
-if ("status" in artifact) {
-  throw new Error("Purchase is pending reconciliation");
-}
+// Signature 1: authorize only this exact Task request.
+const quote = await client.prepare(request);
 
-// Approval 2: review and sign the exact Circle transfer.
-const result = await artifact.execute(requireApproval);
+// Signature 2: pay for the immutable simulated artifact.
+const purchased = await client.purchase(request);
+if (purchased.status === "pending") return reconcileLater();
 
-// This receipt has already been independently verified on Arc.
-await markComplete(result.receipt.transactionHash);`;
+const artifact = parseSmartAccountArtifact(purchased.bytes, request, quote);
+assertExactCalls(artifact.calls, calls);
+
+// Signature 3: Circle executes the exact verified calls on Arc.
+for (const call of artifact.calls) {
+  const submitted = await wallet.executeContractCall(call, showReview);
+  await verifyArcReceipt(submitted);
+}`;
 
 export default function ExecutionKit() {
   return (
     <>
       <section className="compact-hero"><div className="container compact-hero-grid">
-        <div><p className="eyebrow">01 · Execution Kit</p><h1>Connect your agent to controlled Arc execution.</h1><p className="lede">Your agent decides what it wants. The kit verifies the Task response, requests explicit Circle Wallet review, and proves the Arc transaction landed.</p></div>
-        <dl className="status-panel"><div><dt>Status</dt><dd>Preview</dd></div><div><dt>Network</dt><dd>Arc Testnet only</dd></div><div><dt>Action</dt><dd>One USDC transfer</dd></div><div><dt>Hosted endpoint</dt><dd>Pending</dd></div></dl>
+        <div><p className="eyebrow">01 · Execution Kit</p><h1>Turn agent decisions into verified Arc execution.</h1><p className="lede">Aomi turns an exact wallet request into a paid, simulated artifact. Circle separately authorizes the request, the service payment, and final execution.</p></div>
+        <dl className="status-panel"><div><dt>Runtime</dt><dd>Staging verified</dd></div><div><dt>Hosted route</dt><dd>Being routed</dd></div><div><dt>Network</dt><dd>Arc Testnet proven</dd></div><div><dt>Production</dt><dd>Rollout pending</dd></div></dl>
       </div></section>
 
       <section className="runbook-section"><div className="container section-grid">
         <header className="section-index"><span>01</span><div><p className="eyebrow">Use this when</p><h2>You already own the intelligence.</h2></div></header>
-        <div className="facts"><div className="fact"><strong>Your system owns</strong><span>The decision, product context, policy, and user experience.</span></div><div className="fact"><strong>Aomi owns</strong><span>The immutable Task plan, attestation, constraints, and service purchase record.</span></div><div className="fact"><strong>Circle owns</strong><span>Wallet authority, explicit transfer review, signing, and submission.</span></div><div className="fact"><strong>Your verifier owns</strong><span>Independent Arc receipt validation before product state changes.</span></div></div>
+        <div className="facts"><div className="fact"><strong>Your system owns</strong><span>The decision, product policy, and exact ordered contract calls.</span></div><div className="fact"><strong>Aomi owns</strong><span>Independent simulation, the request-bound artifact, quote recovery, and attestation.</span></div><div className="fact"><strong>Circle owns</strong><span>Wallet authority and three separate signatures: Task, Gateway payment, and final execution.</span></div><div className="fact"><strong>Your verifier owns</strong><span>Byte equality and Arc receipt/event checks before product state changes.</span></div></div>
       </div></section>
 
       <section className="runbook-section proof-runbook"><div className="container section-grid">
         <header className="section-index"><span>02</span><div><p className="eyebrow">Copy the integration</p><h2>Integrate against the tested contract.</h2></div></header>
-        <div><CodeBlock label="SERVER-SIDE NODE · CORE FLOW">{integration}</CodeBlock><p className="inline-note"><strong>Preview:</strong> keep the trusted endpoint, identity, seller, JWKS, fee cap, state directory, and Arc RPC in server-side <code>executionConfig</code>. Use only values from an Aomi deployment you independently trust.</p><div className="actions compact-actions"><ExternalLink className="button primary" href={links.taskClient}>Open full implementation ↗</ExternalLink></div></div>
+        <div><CodeBlock label="INSTALL · IMMUTABLE HTTPS SOURCE">{"npm install https://github.com/aomi-labs/arc-canteen/archive/71e08b4f3e18b1b4dd0a5b7d3845b57165e48390.tar.gz"}</CodeBlock><CodeBlock label="SERVER-SIDE NODE · SMART ACCOUNT FLOW">{integration}</CodeBlock><p className="inline-note"><strong>Provisioning:</strong> ask Aomi for the routed staging endpoint, seller address, and trusted attestation JWKS. The signature-only runtime and <code>smart_account_calls</code> flow are verified on Arc Testnet; the canonical builder route and production Task rollout are still being completed. Final wallet execution always stays with the builder.</p><div className="actions compact-actions"><ExternalLink className="button primary" href={links.taskClient}>Open full implementation ↗</ExternalLink></div></div>
       </div></section>
 
       <section className="runbook-section execution-sequence-section"><div className="container">
@@ -66,7 +77,7 @@ export default function ExecutionKit() {
 
       <section className="runbook-section"><div className="container section-grid">
         <header className="section-index"><span>04</span><div><p className="eyebrow">Implementation reference</p><h2>Five gates before completion.</h2></div></header>
-        <div className="instruction-list"><div className="instruction"><b>01</b><div><strong>Submit the bounded intent</strong><p>Send the exact action and constraints to <code>POST /v1/task/build</code>.</p></div><span>Output: Task quote</span></div><div className="instruction"><b>02</b><div><strong>Verify the Task</strong><p>Check the attestation, payload hash, identities, chain, fee cap, and Gateway.</p></div><span>Fail closed</span></div><div className="instruction"><b>03</b><div><strong>Approve the service purchase</strong><p>Show the immutable Aomi plan before purchasing it.</p></div><span>Approval 1</span></div><div className="instruction"><b>04</b><div><strong>Review the transfer</strong><p>Allow one simulated native-USDC transfer matching the original constraints.</p></div><span>Approval 2</span></div><div className="instruction"><b>05</b><div><strong>Verify settlement</strong><p>Require Circle confirmation and an independently checked Arc receipt.</p></div><span>Then mark complete</span></div></div>
+        <div className="instruction-list"><div className="instruction"><b>01</b><div><strong>Authorize the exact Task</strong><p>Sign the canonical request with short-lived EIP-712 authorization. No login, session, API key, or bearer.</p></div><span>Signature 1</span></div><div className="instruction"><b>02</b><div><strong>Verify the 402 quote</strong><p>Check the attestation, request and payload hashes, identities, chain, fee cap, and Gateway requirement.</p></div><span>Fail closed</span></div><div className="instruction"><b>03</b><div><strong>Purchase the artifact</strong><p>Sign the separate Gateway payment; durable idempotency makes retries recover the same purchase.</p></div><span>Signature 2</span></div><div className="instruction"><b>04</b><div><strong>Compare exact call bytes</strong><p>Require the artifact’s ordered targets, calldata, and values to equal the application plan.</p></div><span>Before execution</span></div><div className="instruction"><b>05</b><div><strong>Execute and verify</strong><p>Circle signs the final calls. Mark complete only after the Arc receipt and expected contract events verify.</p></div><span>Signature 3</span></div></div>
       </div></section>
     </>
   );

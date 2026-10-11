@@ -54,7 +54,7 @@ pnpm check:production
 
 ## Status and trust boundaries
 
-- **Execution Kit: Preview.** The client implements the expected `/v1/task/build` validation and recovery contract, but Aomi does not currently expose a confirmed public hosted Task endpoint. Do not present it as live until that endpoint passes the proof manifest gates.
+- **Execution Kit: staging-verified and Arc Testnet proven.** The signature-only `/v1/task/build` runtime, smart-account call artifacts, separate Gateway purchase, Circle execution, and Arc receipt/event verification have passed a complete Mandate acceptance run. The canonical hosted builder route and production Task endpoint have not yet been rolled out; do not present the staging proof as public self-service availability or mainnet support.
 - **Agent-in-a-Box: live hosted starter.** Aomi Application 2938640 calls the public invoice APIs, and the dashboard embeds it through `@aomi-labs/widget-lib`, locked to that Application ID in Direct mode. The approved and refusal paths are production-verified; Circle signing and Arc settlement are intentionally still unverified.
 - Circle Agent Wallet retains signing authority. Aomi prepares and orchestrates execution; it is not the custodian, trader, counterparty, or compliance principal.
 - A successful API response is not settlement. The live path records payment only after Circle confirmation and an independent `eth_getTransactionReceipt` check against Arc.
