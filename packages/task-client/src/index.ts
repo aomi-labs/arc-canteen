@@ -217,7 +217,7 @@ export function validateQuote(
   const required = JSON.parse(Buffer.from(requiredHeader, "base64").toString());
   requireThat(required.x402Version === 2 && required.accepts?.length === 1, "Unsupported x402 requirement");
   requireThat(required.extensions?.aomiTask?.quoteId === quote.quoteId && required.extensions?.aomiTask?.payloadHash === quote.payloadHash, "x402 quote binding mismatch");
-  requireThat(required.resource?.url === `/v1/tasks/quotes/${quote.quoteId}/purchase` && required.resource.mimeType === "application/json", "Unexpected payment resource");
+  requireThat(required.resource?.url === options.endpoint && required.resource.mimeType === "application/json", "Unexpected payment resource");
   const accepted = required.accepts[0];
   const fee = decimal(accepted.amount);
   requireThat(request.chainId === 5_042_002 && accepted.scheme === "exact" && accepted.network === `eip155:${request.chainId}`, "Only explicitly supported Arc testnet Gateway rail is allowed");

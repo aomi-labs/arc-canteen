@@ -68,3 +68,11 @@ Repository checks never submit a funded-wallet transaction or mainnet action.
 ## License
 
 This public builder kit is available under the [MIT License](LICENSE). The hosted Aomi Task runtime is a separate service; its backend source is not included in this repository. Third-party dependencies retain their own licenses.
+
+### Task payment resource URL
+
+The Task client expects the x402 `resource.url` to equal its configured absolute
+`/v1/task/build` endpoint. Deploy it with the API Server/payment release that
+advertises that same URL. Relative `/v1/tasks/quotes/.../purchase` challenges from
+older servers are rejected. Quote identity remains checked in `extensions.aomiTask`
+and the signed quote-bound nonce; this change does not authorize transaction execution.

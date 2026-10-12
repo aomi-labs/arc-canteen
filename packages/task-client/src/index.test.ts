@@ -45,7 +45,7 @@ function fixture(
   const quoteId = "00000000-0000-0000-0000-000000000001";
   const requirement = {
     x402Version: 2,
-    resource: { url: `/v1/tasks/quotes/${quoteId}/purchase`, description: "Aomi task artifact", mimeType: "application/json" },
+    resource: { url: "http://127.0.0.1:1234/v1/task/build", description: "Aomi task artifact", mimeType: "application/json" },
     accepts: [{
       scheme: "exact",
       network: "eip155:5042002",
@@ -482,5 +482,13 @@ test("rejects a quote that selects a different Gateway signing domain", () => {
   ]) {
     const data = fixture(change);
     assert.throws(() => validateQuote(data.quote, data.header, request, data.options, now));
+  }
+});
+
+
+test("payment resource must match the configured absolute Task endpoint", () => {
+  for (const url of ["https://other.example/v1/task/build", "/v1/task/build", "/v1/tasks/quotes/00000000-0000-0000-0000-000000000001/purchase"]) {
+    const data = fixture(requirement => { requirement.resource.url = url; });
+    assert.throws(() => validateQuote(data.quote, data.header, request, data.options, now), /Unexpected payment resource/);
   }
 });
