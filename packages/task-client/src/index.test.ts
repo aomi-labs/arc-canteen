@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { lockProcess } from "../test/lock-process.ts";
 import { createHash, generateKeyPairSync, sign } from "node:crypto";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import test from "node:test";
@@ -128,7 +129,7 @@ test("recomputes the canonical request hash instead of trusting matching quote c
   assert.throws(() => validateQuote(data.quote, data.header, request, data.options, now), /Quote hash binding mismatch/);
 });
 
-test("persists one authorization through an unknown delivery and recovery", async () => {
+test("preserves the payment journal and original authorization after process termination", async () => {
   const data = fixture();
   const directory = await mkdtemp(path.join(os.tmpdir(), "arc-task-client-"));
   let signatures = 0;
@@ -151,6 +152,12 @@ test("persists one authorization through an unknown delivery and recovery", asyn
     await assert.rejects(new TaskClient(options).purchase(request));
     const saved = JSON.parse(await readFile(path.join(directory, "state.json"), "utf8"));
     assert.equal(saved.phase, "pending");
+    const originalJournal = await readFile(path.join(directory, "state.json"));
+    const crashed = await lockProcess(directory);
+    assert.equal(crashed.output, "acquired");
+    crashed.child.kill("SIGKILL");
+    await crashed.exited;
+    assert.deepEqual(await readFile(path.join(directory, "state.json")), originalJournal);
     const receipt = Buffer.from(JSON.stringify({ success: true, payer, network: "eip155:5042002", transaction: "gateway-reference" })).toString("base64");
     const retry: TaskClientOptions = {
       ...options,
@@ -164,6 +171,12 @@ test("persists one authorization through an unknown delivery and recovery", asyn
     assert.equal(result.status, "complete");
     assert.equal(signatures, 2);
     assert.equal(sent[0], sent[1]);
+    const recovered = JSON.parse(await readFile(path.join(directory, "state.json"), "utf8"));
+    assert.equal(recovered.idempotencyKey, saved.idempotencyKey);
+    assert.equal(recovered.requestHash, saved.requestHash);
+    assert.equal(recovered.paymentSignature, saved.paymentSignature);
+    assert.deepEqual(recovered.authorization, saved.authorization);
+    assert.deepEqual(recovered.taskAuthorization, saved.taskAuthorization);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
