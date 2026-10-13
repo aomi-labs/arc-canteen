@@ -4,6 +4,9 @@ import path from "node:path";
 import fsExt from "fs-ext";
 /** Local POSIX advisory lock. Keep its inode forever: unlinking it permits two owners. */
 export async function withStateLock(directory, name, operation) {
+    if (process.platform !== "linux" && process.platform !== "darwin") {
+        throw new Error("State locking requires Linux/macOS local POSIX storage");
+    }
     await mkdir(directory, { recursive: true, mode: 0o700 });
     const info = await lstat(directory);
     if (!info.isDirectory() || info.isSymbolicLink() || (info.mode & 0o077) !== 0) {
