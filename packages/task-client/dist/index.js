@@ -1,10 +1,11 @@
 /** Purchases immutable Task API bytes. It never signs or submits the resulting execution actions. */
 import { createHash, createPublicKey, randomUUID, verify } from "node:crypto";
-import { lstat, mkdir, open, readFile, rename, rmdir } from "node:fs/promises";
+import { lstat, open, readFile, rename } from "node:fs/promises";
 import path from "node:path";
 import canonicalize from "canonicalize";
+import { withStateLock } from "./lock.js";
 import { hashTypedData, keccak256, stringToHex } from "viem";
-import { ARC_TESTNET_CHAIN_ID, CircleArcWallet, verifyArcTransferReceipt, } from "../../circle-arc-wallet/dist/index.js";
+import { ARC_TESTNET_CHAIN_ID, verifyArcTransferReceipt, } from "../../circle-arc-wallet/dist/index.js";
 const USDC = "0x3600000000000000000000000000000000000000";
 const GATEWAY = "0x0077777d7eba4688bdef3e311b846f25870a19b9";
 const TASK_RESOURCE = "https://chat.aomi.dev/v1/task";
@@ -223,17 +224,7 @@ export class TaskClient {
         return { response, bytes: Buffer.concat(chunks) };
     }
     async withLock(operation) {
-        await mkdir(this.options.stateDirectory, { recursive: true, mode: 0o700 });
-        const info = await lstat(this.options.stateDirectory);
-        requireThat(info.isDirectory() && !info.isSymbolicLink() && (info.mode & 0o077) === 0, "State directory must be private (0700) and not a symlink");
-        const lock = path.join(this.options.stateDirectory, "lock");
-        await mkdir(lock, { mode: 0o700 });
-        try {
-            return await operation();
-        }
-        finally {
-            await rmdir(lock);
-        }
+        return withStateLock(this.options.stateDirectory, "lock", operation);
     }
     policy(request) {
         return {
@@ -536,14 +527,7 @@ export class ArcPurchasedArtifact {
         this.rpcFetch = rpcFetch;
     }
     async execute(confirm) {
-        const lock = path.join(this.stateDirectory, "execution-lock");
-        await mkdir(lock, { mode: 0o700 });
-        try {
-            return await this.executeLocked(confirm);
-        }
-        finally {
-            await rmdir(lock);
-        }
+        return withStateLock(this.stateDirectory, "execution-lock", () => this.executeLocked(confirm));
     }
     async saveExecution(state) {
         const file = path.join(this.stateDirectory, "execution.json");

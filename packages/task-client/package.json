@@ -6,11 +6,15 @@
   "exports": "./src/index.ts",
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test src/index.test.ts"
+    "test": "tsx --test src/*.test.ts"
   },
   "dependencies": {
     "@arc-canteen/circle-arc-wallet": "workspace:*",
     "canonicalize": "2.1.0",
+    "fs-ext": "2.1.1",
     "viem": "^2.45.0"
+  },
+  "devDependencies": {
+    "@types/fs-ext": "2.0.3"
   }
 }

@@ -1,9 +1,10 @@
 /** Purchases immutable Task API bytes. It never signs or submits the resulting execution actions. */
 import { createHash, createPublicKey, randomUUID, verify } from "node:crypto";
 import type { JsonWebKey as NodeJsonWebKey } from "node:crypto";
-import { lstat, mkdir, open, readFile, rename, rmdir } from "node:fs/promises";
+import { lstat, open, readFile, rename } from "node:fs/promises";
 import path from "node:path";
 import canonicalize from "canonicalize";
+import { withStateLock } from "./lock.ts";
 import { hashTypedData, keccak256, stringToHex } from "viem";
 import {
   ARC_TESTNET_CHAIN_ID,
@@ -309,16 +310,7 @@ export class TaskClient {
   }
 
   private async withLock<T>(operation: () => Promise<T>): Promise<T> {
-    await mkdir(this.options.stateDirectory, { recursive: true, mode: 0o700 });
-    const info = await lstat(this.options.stateDirectory);
-    requireThat(info.isDirectory() && !info.isSymbolicLink() && (info.mode & 0o077) === 0, "State directory must be private (0700) and not a symlink");
-    const lock = path.join(this.options.stateDirectory, "lock");
-    await mkdir(lock, { mode: 0o700 });
-    try {
-      return await operation();
-    } finally {
-      await rmdir(lock);
-    }
+    return withStateLock(this.options.stateDirectory, "lock", operation);
   }
 
   private policy(request: TaskRequest) {
@@ -723,13 +715,7 @@ export class ArcPurchasedArtifact {
   ) {}
 
   async execute(confirm: (review: CircleCommandReview) => boolean | Promise<boolean>): Promise<ArcExecutionResult> {
-    const lock = path.join(this.stateDirectory, "execution-lock");
-    await mkdir(lock, { mode: 0o700 });
-    try {
-      return await this.executeLocked(confirm);
-    } finally {
-      await rmdir(lock);
-    }
+    return withStateLock(this.stateDirectory, "execution-lock", () => this.executeLocked(confirm));
   }
 
   private async saveExecution(state: Record<string, unknown>) {
