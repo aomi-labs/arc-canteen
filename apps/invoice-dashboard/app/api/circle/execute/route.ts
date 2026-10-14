@@ -42,12 +42,12 @@ export async function POST(request: Request) {
       idempotencyKey: `invoice-${decision.invoiceId}`,
     }, () => true);
     if (result.transactionId && !result.transactionHash) {
-      result = await wallet.waitForConfirmation(result.transactionId);
+      result = await wallet.waitForConfirmation(result.transactionId, ARC_TESTNET_CHAIN_ID);
     }
     if (!result.transactionHash) throw new Error("Circle did not return a confirmed Arc transaction hash");
     const rpcUrl = process.env.ARC_TESTNET_RPC_URL;
     if (!rpcUrl) throw new Error("ARC_TESTNET_RPC_URL is required for independent receipt verification");
-    const receipt = await verifyArcTransferReceipt(result.transactionHash, rpcUrl, {
+    const receipt = await verifyArcTransferReceipt(result.transactionHash, rpcUrl, ARC_TESTNET_CHAIN_ID, {
       from: wallet.walletAddress,
       to: decision.recipient,
       valueWei: decision.amountWei,

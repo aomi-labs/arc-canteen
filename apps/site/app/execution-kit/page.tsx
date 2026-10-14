@@ -13,7 +13,7 @@ import { TaskClient, parseSmartAccountArtifact } from "arc-canteen/task-client";
 import { CircleArcWallet } from "arc-canteen/circle-arc-wallet";
 
 const wallet = new CircleArcWallet({ walletAddress: circleWallet });
-const payer = await wallet.gatewayPayer();
+const payer = await wallet.gatewayPayer(5042002); // Explicit Arc Testnet
 const calls = planCalls(decision); // exact ordered { to, data, value }[]
 
 const request = {
@@ -49,7 +49,7 @@ assertExactCalls(artifact.calls, calls);
 // Signature 3: Circle executes the exact verified calls on Arc.
 for (const call of artifact.calls) {
   const submitted = await wallet.executeContractCall(call, showReview);
-  await verifyArcReceipt(submitted);
+  await verifyArcReceipt(submitted.transactionHash!, "https://rpc.testnet.arc.io", 5042002);
 }`;
 
 export default function ExecutionKit() {
@@ -57,7 +57,7 @@ export default function ExecutionKit() {
     <>
       <section className="compact-hero"><div className="container compact-hero-grid">
         <div><p className="eyebrow">01 · Execution Kit</p><h1>Turn agent decisions into verified Arc execution.</h1><p className="lede">Aomi turns an exact wallet request into a paid, simulated artifact. Circle separately authorizes the request, the service payment, and final execution.</p></div>
-        <dl className="status-panel"><div><dt>Runtime</dt><dd>Staging verified</dd></div><div><dt>Hosted route</dt><dd>Being routed</dd></div><div><dt>Network</dt><dd>Arc Testnet proven</dd></div><div><dt>Production</dt><dd>Rollout pending</dd></div></dl>
+        <dl className="status-panel"><div><dt>Runtime</dt><dd>r151 deployed</dd></div><div><dt>Hosted route</dt><dd>Production API live</dd></div><div><dt>Network</dt><dd>Mainnet EOA flow in review</dd></div><div><dt>Production</dt><dd>Paid QA pending</dd></div></dl>
       </div></section>
 
       <section className="runbook-section"><div className="container section-grid">
@@ -67,7 +67,7 @@ export default function ExecutionKit() {
 
       <section className="runbook-section proof-runbook"><div className="container section-grid">
         <header className="section-index"><span>02</span><div><p className="eyebrow">Copy the integration</p><h2>Integrate against the tested contract.</h2></div></header>
-        <div><CodeBlock label="INSTALL · IMMUTABLE HTTPS SOURCE">{"npm install https://github.com/aomi-labs/arc-canteen/archive/ab1e44dc8093f0edee104de327e91da43000c09b.tar.gz"}</CodeBlock><CodeBlock label="SERVER-SIDE NODE · SMART ACCOUNT FLOW">{integration}</CodeBlock><p className="inline-note"><strong>Provisioning:</strong> ask Aomi for the routed staging endpoint, seller address, and trusted attestation JWKS. The signature-only runtime and <code>smart_account_calls</code> flow are verified on Arc Testnet; the canonical builder route and production Task rollout are still being completed. Final wallet execution always stays with the builder.</p><div className="actions compact-actions"><ExternalLink className="button primary" href={links.taskClient}>Open full implementation ↗</ExternalLink></div></div>
+        <div><CodeBlock label="INSTALL · IMMUTABLE HTTPS SOURCE">{"npm install https://github.com/aomi-labs/arc-canteen/archive/ab1e44dc8093f0edee104de327e91da43000c09b.tar.gz"}</CodeBlock><CodeBlock label="SERVER-SIDE NODE · SMART ACCOUNT FLOW">{integration}</CodeBlock><p className="inline-note"><strong>Network scope:</strong> the example above is Arc Testnet <code>smart_account_calls</code>. This branch adds a separate explicit Arc Mainnet path for one bounded EOA USDC transfer. Its pre-spend review includes the signed quote, exact Gateway allowance and deposit if needed, business transaction, nonces, and aggregate gas cap. Production paid acceptance remains pending the bounded Mainnet QA E2E. Final wallet execution always stays with the builder.</p><div className="actions compact-actions"><ExternalLink className="button primary" href={links.taskClient}>Open full implementation ↗</ExternalLink></div></div>
       </div></section>
 
       <section className="runbook-section execution-sequence-section"><div className="container">
