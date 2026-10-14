@@ -9,7 +9,7 @@ This package is the Node-first client for an existing agent or decision engine. 
 Install the reviewed monorepo package from an immutable HTTPS source after the Mainnet-support PR is merged; it is not published to npm:
 
 ```sh
-npm install https://github.com/aomi-labs/arc-canteen/archive/45612bba3480a35b2038e88b17c0584136f32a3b.tar.gz
+npm install https://github.com/aomi-labs/arc-canteen/archive/b6ef5a3c7e8ed60ca1f8b32a4ab870d474378f00.tar.gz
 ```
 
 This revision requires the server to advertise the absolute configured `/v1/task/build` payment resource URL. Update the client and payment service together; old relative quote-purchase URLs are rejected.
