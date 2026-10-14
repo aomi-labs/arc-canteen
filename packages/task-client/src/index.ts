@@ -156,6 +156,51 @@ export function taskAuthorizationData(request: TaskRequest, idempotencyKey: stri
   return { canonical, requestHash, digest: hashTypedData(typedData), typedData };
 }
 
+/** Fetches verification keys from the HTTPS origin the caller already trusts for Task quotes. */
+export async function fetchTrustedTaskJwks(taskEndpoint: string, requestFetch: typeof fetch = fetch) {
+  let endpoint: URL;
+  try {
+    endpoint = new URL(taskEndpoint);
+  } catch {
+    throw new Error("Task endpoint must be an absolute HTTPS URL");
+  }
+  requireThat(
+    endpoint.protocol === "https:" && !endpoint.username && !endpoint.password && !endpoint.search && !endpoint.hash,
+    "Trusted Task JWKS requires a clean HTTPS endpoint",
+  );
+
+  const response = await requestFetch(new URL("/.well-known/jwks.json", endpoint.origin), {
+    method: "GET",
+    headers: { accept: "application/json" },
+    credentials: "omit",
+    redirect: "error",
+  });
+  requireThat(response.status === 200, `Trusted Task JWKS request failed with HTTP ${response.status}`);
+  const document: unknown = await response.json();
+  requireThat(
+    typeof document === "object" && document !== null && !Array.isArray(document) &&
+      Array.isArray((document as { keys?: unknown }).keys) && (document as { keys: unknown[] }).keys.length > 0,
+    "Invalid Task JWKS document",
+  );
+
+  const keys = (document as { keys: unknown[] }).keys.map((value) => {
+    requireThat(typeof value === "object" && value !== null && !Array.isArray(value), "Invalid Task JWKS key");
+    const key = value as Record<string, unknown>;
+    requireThat(
+      Object.keys(key).every((field) => ["kty", "crv", "use", "key_ops", "alg", "kid", "x"].includes(field)) &&
+        key.kty === "OKP" && key.crv === "Ed25519" && key.use === "sig" && key.alg === "EdDSA" &&
+        Array.isArray(key.key_ops) && key.key_ops.length === 1 && key.key_ops[0] === "verify" &&
+        typeof key.kid === "string" && /^[A-Za-z0-9._-]{1,128}$/.test(key.kid) &&
+        typeof key.x === "string" && /^[A-Za-z0-9_-]{43}$/.test(key.x) &&
+        Buffer.from(key.x, "base64url").length === 32 && Buffer.from(key.x, "base64url").toString("base64url") === key.x,
+      "Invalid or non-public Ed25519 Task JWKS key",
+    );
+    return key;
+  });
+  requireThat(new Set(keys.map((key) => key.kid)).size === keys.length, "Duplicate Task JWKS key id");
+  return { keys };
+}
+
 function walletPrincipal(request: TaskRequest) {
   return `wallet:eip155:${request.chainId}:${address(request.sender)}`;
 }

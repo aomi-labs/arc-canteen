@@ -6,13 +6,43 @@ import test from "node:test";
 import os from "node:os";
 import path from "node:path";
 import { CircleArcWallet } from "@arc-canteen/circle-arc-wallet";
-import { ArcExecutionKit, ArcPurchasedArtifact, TaskClient, parseArcTransferArtifact, parseSmartAccountArtifact, taskAuthorizationData, type ArcTransferPlan, type TaskClientOptions, type TaskQuotePreview, type TaskRequest, validateQuote, verifyAttestation } from "./index.ts";
+import { ArcExecutionKit, ArcPurchasedArtifact, TaskClient, fetchTrustedTaskJwks, parseArcTransferArtifact, parseSmartAccountArtifact, taskAuthorizationData, type ArcTransferPlan, type TaskClientOptions, type TaskQuotePreview, type TaskRequest, validateQuote, verifyAttestation } from "./index.ts";
 
 const payer = "0x1111111111111111111111111111111111111111";
 const recipient = "0x2222222222222222222222222222222222222222";
 const request = { intent: "Transfer test USDC", chainId: 5_042_002, sender: payer };
 const now = 100_000;
 const idempotencyKey = "task-idempotency-key";
+
+test("fetches a public JWKS only from the independently selected HTTPS Task origin", async () => {
+  const key = { ...generateKeyPairSync("ed25519").publicKey.export({ format: "jwk" }), kid: "aomi-task-1", alg: "EdDSA", use: "sig", key_ops: ["verify"] };
+  let requested: URL | undefined;
+  let requestInit: RequestInit | undefined;
+  const jwks = await fetchTrustedTaskJwks("https://api.example/v1/task/build", async (input, init) => {
+    requested = new URL(String(input));
+    requestInit = init;
+    return new Response(JSON.stringify({ keys: [key] }), { status: 200 });
+  });
+  assert.equal(requested?.href, "https://api.example/.well-known/jwks.json");
+  assert.equal(requestInit?.method, "GET");
+  assert.equal(requestInit?.credentials, "omit");
+  assert.equal(requestInit?.redirect, "error");
+  assert.deepEqual(jwks.keys, [key]);
+});
+
+test("rejects insecure origins, remote redirects, private keys, duplicate kids, and malformed keys", async () => {
+  await assert.rejects(fetchTrustedTaskJwks("http://api.example/v1/task/build"), /HTTPS/);
+  await assert.rejects(fetchTrustedTaskJwks("https://user:pass@api.example/v1/task/build"), /HTTPS/);
+  await assert.rejects(fetchTrustedTaskJwks("https://api.example/v1/task/build?redirect=1"), /HTTPS/);
+  await assert.rejects(fetchTrustedTaskJwks("https://api.example/v1/task/build", async () => new Response(null, { status: 302 })), /HTTP 302/);
+
+  const key = { ...generateKeyPairSync("ed25519").publicKey.export({ format: "jwk" }), kid: "aomi-task-1", alg: "EdDSA", use: "sig", key_ops: ["verify"] };
+  const fetchDocument = (keys: unknown[]) => async () => new Response(JSON.stringify({ keys }), { status: 200 });
+  await assert.rejects(fetchTrustedTaskJwks("https://api.example/v1/task/build", fetchDocument([{ ...key, d: "private" }])), /Invalid or non-public/);
+  await assert.rejects(fetchTrustedTaskJwks("https://api.example/v1/task/build", fetchDocument([key, key])), /Duplicate/);
+  await assert.rejects(fetchTrustedTaskJwks("https://api.example/v1/task/build", fetchDocument([{ ...key, x: "bad" }])), /Invalid or non-public/);
+  await assert.rejects(fetchTrustedTaskJwks("https://api.example/v1/task/build", fetchDocument([])), /Invalid Task JWKS/);
+});
 
 test("matches the Rust golden JCS request hash and EIP-712 digest", () => {
   const fixture = taskAuthorizationData({
