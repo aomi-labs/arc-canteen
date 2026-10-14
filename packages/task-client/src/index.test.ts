@@ -351,6 +351,15 @@ test("accepts only one exact successful Arc native-USDC artifact", () => {
   assert.equal(plan.recipient, target);
   assert.equal(plan.amountWei, amountWei);
   assert.equal(plan.buildDigest, "b".repeat(64));
+  const currentSchema: any = structuredClone(artifact);
+  delete currentSchema.report.contexts[0].balance_overrides;
+  currentSchema.report.contexts[0].overrides = [];
+  delete currentSchema.report.steps[0].execution;
+  currentSchema.report.steps[0].result = { status: { kind: "succeeded" }, gas_used: 21_000 };
+  const currentPlan = parseArcTransferArtifact(Buffer.from(JSON.stringify(currentSchema)), boundedRequest, quote, "1", now);
+  assert.equal(currentPlan.recipient, target);
+  currentSchema.report.contexts[0].overrides.push({ account: target });
+  assert.throws(() => parseArcTransferArtifact(Buffer.from(JSON.stringify(currentSchema)), boundedRequest, quote, "1", now), /Simulation context/);
   artifact.build.actions[0].to = recipient;
   assert.throws(() => parseArcTransferArtifact(Buffer.from(JSON.stringify(artifact)), boundedRequest, quote, "1", now), /does not match/);
   artifact.build.actions[0].to = target;

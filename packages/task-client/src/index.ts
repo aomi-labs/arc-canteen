@@ -680,12 +680,16 @@ export function parseArcTransferArtifact(
   requireThat(Array.isArray(summary.constraints) && summary.constraints.every((item: any) => item?.status === "passed"), "A Task constraint did not pass");
   requireThat(Array.isArray(report.contexts) && report.contexts.length === 1, "Task report requires one Arc simulation context");
   const context = object(report.contexts[0], "Simulation context");
-  requireThat(context.chain_id === ARC_TESTNET_CHAIN_ID && address(context.sender) === sender && Array.isArray(context.balance_overrides) && context.balance_overrides.length === 0, "Simulation context does not match the reviewed sender and chain");
+  const legacyOverrides = Array.isArray(context.balance_overrides);
+  const currentOverrides = Array.isArray(context.overrides);
+  const overrides = legacyOverrides ? context.balance_overrides : context.overrides;
+  requireThat(context.chain_id === ARC_TESTNET_CHAIN_ID && address(context.sender) === sender && legacyOverrides !== currentOverrides && Array.isArray(overrides) && overrides.length === 0, "Simulation context does not match the reviewed sender and chain");
   requireThat(Array.isArray(report.steps) && report.steps.length === 1, "Task report requires one successful step");
   const step = object(report.steps[0], "Simulation step");
   const call = object(step.call, "Simulation call");
+  const executionStatus = step.execution?.status ?? step.result?.status;
   requireThat(
-    step.chain_id === ARC_TESTNET_CHAIN_ID && executionSucceeded(step.execution?.status) && address(call.to) === recipient &&
+    step.chain_id === ARC_TESTNET_CHAIN_ID && Boolean(step.execution) !== Boolean(step.result) && executionSucceeded(executionStatus) && address(call.to) === recipient &&
     exactWei(call.value) === BigInt(amountWei) && call.data === "0x",
     "Simulation evidence differs from the reviewed transfer",
   );
