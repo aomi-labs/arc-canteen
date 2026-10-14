@@ -71,7 +71,7 @@ Contract calls, ERC-20 approvals, batches, swaps, bridges, arbitrary calldata, m
 
 ## Deployment status
 
-The Task API is signature-only: Circle signs each exact EIP-712 Task request, then separately signs the Gateway payment and final execution. No login, OAuth resource, access token, refresh token, API key, or bearer is used. The staging runtime and `smart_account_calls` flow have passed a complete Arc Testnet acceptance run. Use an independently trusted HTTPS endpoint and seller address; fetch its public attestation JWKS with `fetchTrustedTaskJwks` before verifying quotes. Public self-service routing and mainnet Task payments remain disabled.
+The Task API is signature-only: Circle signs each exact EIP-712 Task request, then separately signs the Gateway payment and final execution. No login, OAuth resource, access token, refresh token, API key, or bearer is used. The Task API production endpoint `https://api.aomi.dev` advertises Arc Mainnet payments from r150, but production paid acceptance is still unverified. This Execution Kit remains Arc Testnet-only: `arcTestnet()` is not a Mainnet client and must not be used with a Mainnet wallet. Product-mono #1347 and this client PR #49 prepare JWKS discovery; production `/.well-known/jwks.json` still returns 404, so independently provision the trusted JWKS until #1347 is deployed. Public Bazaar/self-service marketplace routing is outside this Task API release.
 
 ## Crash recovery and state locks
 
