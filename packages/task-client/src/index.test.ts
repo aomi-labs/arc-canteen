@@ -358,6 +358,28 @@ test("accepts only one exact successful Arc native-USDC artifact", () => {
   currentSchema.report.steps[0].result = { status: { kind: "succeeded" }, gas_used: 21_000 };
   const currentPlan = parseArcTransferArtifact(Buffer.from(JSON.stringify(currentSchema)), boundedRequest, quote, "1", now);
   assert.equal(currentPlan.recipient, target);
+  const rejectedContextVariants: Array<[string, (candidate: any) => void]> = [
+    ["dual override schemas", (candidate) => { candidate.report.contexts[0].balance_overrides = []; }],
+    ["malformed legacy overrides", (candidate) => { candidate.report.contexts[0].balance_overrides = null; }],
+    ["missing overrides", (candidate) => { delete candidate.report.contexts[0].overrides; }],
+    ["malformed current overrides", (candidate) => { candidate.report.contexts[0].overrides = null; }],
+  ];
+  for (const [name, mutate] of rejectedContextVariants) {
+    const candidate = structuredClone(currentSchema);
+    mutate(candidate);
+    assert.throws(() => parseArcTransferArtifact(Buffer.from(JSON.stringify(candidate)), boundedRequest, quote, "1", now), /Simulation context/, name);
+  }
+  const rejectedStepVariants: Array<[string, (candidate: any) => void]> = [
+    ["dual execution schemas", (candidate) => { candidate.report.steps[0].execution = { status: { kind: "succeeded" } }; }],
+    ["malformed legacy execution", (candidate) => { candidate.report.steps[0].execution = null; }],
+    ["missing execution result", (candidate) => { delete candidate.report.steps[0].result; }],
+    ["malformed current result", (candidate) => { candidate.report.steps[0].result = null; }],
+  ];
+  for (const [name, mutate] of rejectedStepVariants) {
+    const candidate = structuredClone(currentSchema);
+    mutate(candidate);
+    assert.throws(() => parseArcTransferArtifact(Buffer.from(JSON.stringify(candidate)), boundedRequest, quote, "1", now), /Simulation evidence/, name);
+  }
   currentSchema.report.contexts[0].overrides.push({ account: target });
   assert.throws(() => parseArcTransferArtifact(Buffer.from(JSON.stringify(currentSchema)), boundedRequest, quote, "1", now), /Simulation context/);
   artifact.build.actions[0].to = recipient;
