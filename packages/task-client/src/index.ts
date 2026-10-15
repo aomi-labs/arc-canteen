@@ -299,6 +299,24 @@ export function validateQuote(
   return { required, accepted };
 }
 
+function validateStoredQuote(
+  quote: Record<string, any>,
+  requiredHeader: string,
+  request: TaskRequest,
+  options: TaskClientOptions,
+) {
+  let issuedAt: unknown;
+  try {
+    const claims = JSON.parse(Buffer.from(String(quote?.attestation).split(".")[1] ?? "", "base64url").toString());
+    issuedAt = claims.iat;
+  } catch {
+    throw new Error("Stored Task quote has no valid signed issue time");
+  }
+  requireThat(Number.isSafeInteger(issuedAt), "Stored Task quote has no valid signed issue time");
+  const validation = validateQuote(quote, requiredHeader, request, options, Number(issuedAt));
+  return { ...validation, issuedAt: Number(issuedAt) };
+}
+
 const TYPES = {
   TransferWithAuthorization: [
     { name: "from", type: "address" },
@@ -455,12 +473,29 @@ export class TaskClient {
       const started = ledger.executionEverStarted === true;
       if (checkpoint) {
         requireThat(checkpoint.artifactHash === artifactHash, "Execution checkpoint belongs to a different Task artifact");
+        const mainnetExecution = (checkpoint as any).plan?.chainId === ARC_MAINNET_CHAIN_ID;
         if (previous) {
           requireThat(checkpoint.idempotencyKey === previous.idempotencyKey, "Execution checkpoint cannot change its original idempotency key");
           const phaseOrder = ["prepared", "submission_pending", "circle_submitted", "circle_confirmed", "complete"];
           const nextPhase = phaseOrder.indexOf(String(checkpoint.phase));
           const previousPhase = phaseOrder.indexOf(String(previous.phase));
           requireThat(nextPhase >= 0 && previousPhase >= 0 && nextPhase >= previousPhase, "Execution checkpoint cannot move to an unknown or earlier phase");
+          requireThat(
+            stable((checkpoint as any).artifactRecovery ?? null) === stable(previous.artifactRecovery ?? null),
+            "Execution checkpoint cannot remove or change its original artifact recovery evidence",
+          );
+          if (previous.mainnetRevalidation && (previous.phase !== "prepared" || nextPhase > previousPhase)) {
+            requireThat(
+              stable((checkpoint as any).mainnetRevalidation) === stable(previous.mainnetRevalidation),
+              "Execution checkpoint cannot remove or change Mainnet revalidation after submission begins",
+            );
+          }
+          if (mainnetExecution) {
+            requireThat(
+              nextPhase === 0 || Boolean((checkpoint as any).mainnetRevalidation),
+              "Mainnet revalidation evidence is required before transaction submission",
+            );
+          }
           const oldRaw = previous.circle?.raw?.rawTransaction;
           const nextRaw = (checkpoint as any).circle?.raw?.rawTransaction;
           if (oldRaw) requireThat(nextRaw === oldRaw, "Execution checkpoint cannot replace the original signed transaction");
@@ -469,6 +504,12 @@ export class TaskClient {
           if (oldNonce !== undefined) requireThat(nextNonce === oldNonce, "Execution checkpoint cannot change the original transaction nonce");
         } else {
           requireThat(!started, "Execution checkpoint was removed after execution started; reconcile the original transaction before recovery");
+          if (mainnetExecution) {
+            requireThat(
+              checkpoint.phase === "prepared" || Boolean((checkpoint as any).mainnetRevalidation),
+              "Mainnet revalidation evidence is required before transaction submission",
+            );
+          }
         }
         ledger.executionEverStarted = true;
         ledger.executionJournal = immutableSnapshot(checkpoint);
@@ -621,7 +662,8 @@ export class TaskClient {
       state = { ...state, quote, requiredHeader: header, verifiedAt: this.now(), phase: "quoted" };
       await this.save(state);
     }
-    validateQuote(state.quote, state.requiredHeader, request, this.options, state.paymentSignature ? state.verifiedAt : this.now());
+    if (state.paymentSignature) validateStoredQuote(state.quote, state.requiredHeader, request, this.options);
+    else validateQuote(state.quote, state.requiredHeader, request, this.options, this.now());
     return state;
   }
 
@@ -645,13 +687,9 @@ export class TaskClient {
 
   private async locked(request: TaskRequest): Promise<TaskPurchaseResult> {
     let state = await this.prepared(request);
-    const { required, accepted } = validateQuote(
-      state.quote,
-      state.requiredHeader,
-      request,
-      this.options,
-      state.paymentSignature ? state.verifiedAt : this.now(),
-    );
+    const { required, accepted } = state.paymentSignature
+      ? validateStoredQuote(state.quote, state.requiredHeader, request, this.options)
+      : validateQuote(state.quote, state.requiredHeader, request, this.options, this.now());
     if (request.chainId === ARC_MAINNET_CHAIN_ID) {
       requireThat(this.options.rpcUrl, "Arc Mainnet purchase requires an independent Circle settlement RPC verifier");
       await verifyArcChainId(this.options.rpcUrl, ARC_MAINNET_CHAIN_ID, this.options.rpcFetch);
@@ -751,6 +789,7 @@ export class TaskClient {
     accepted: { amount: string; extra: { aomiTaskNonce: string } },
   ): Promise<TaskPurchaseResult> {
     requireThat(request.chainId === ARC_MAINNET_CHAIN_ID && this.options.rpcUrl, "Mainnet settlement recovery requires the original Arc RPC");
+    requireThat(typeof state.bytes === "string" && hash(Buffer.from(state.bytes, "base64")) === state.quote?.payloadHash, "Mainnet artifact bytes are missing or changed before settlement recovery");
     const settlement = await verifyArcGatewaySettlement({
       chainId: ARC_MAINNET_CHAIN_ID,
       rpcUrl: this.options.rpcUrl,
@@ -968,6 +1007,18 @@ function mainnetGasBudgetPolicy(budget?: ArcExecutionGasBudget) {
   };
 }
 
+function executionTransactionAtGasPrice(
+  approved: ArcMainnetTransactionPreview,
+  budget: ArcExecutionGasBudget,
+  currentGasPrice: bigint,
+): ArcMainnetTransactionPreview {
+  requireThat(currentGasPrice > 0n && currentGasPrice <= budget.maxGasPriceWei, "Arc Mainnet gas price exceeds the approved hard cap");
+  const gasPrice = currentGasPrice > BigInt(approved.gasPriceWei) ? currentGasPrice : BigInt(approved.gasPriceWei);
+  const maxGasCost = BigInt(approved.gasLimitWei) * gasPrice;
+  requireThat(budget.alreadySpentGasWei + maxGasCost <= budget.maxAggregateGasWei, "Arc Mainnet refreshed gas price exceeds the remaining aggregate gas budget");
+  return immutableSnapshot({ ...approved, gasPriceWei: gasPrice.toString(), maxGasCostWei: maxGasCost.toString() });
+}
+
 export type ArcExecutionKitOptions = Omit<TaskClientOptions, "payer" | "signTypedData"> & {
   wallet: CircleArcWallet;
   rpcUrl: string;
@@ -1121,6 +1172,7 @@ export function parseArcTransferArtifact(
   requireThat(stable(summary) === stable(quote.summary), "Paid artifact summary differs from the attested quote preview");
   requireThat(build.version === 2 && build.status === "simulated", "Task build is not a supported simulated Build");
   requireThat(Number.isSafeInteger(build.expiresAt) && build.expiresAt > now + 15, "Task build has expired or expires too soon");
+  requireThat(build.expiresAt >= quote.expiresAt, "Task quote outlives its Build and could authorize payment after simulation expiry");
   const buildDigest = sha256Digest(build.digest);
   requireThat(Array.isArray(build.actions) && build.actions.length === 1, "Execution Kit V1 requires exactly one action");
   const action = object(build.actions[0], "Task action");
@@ -1171,6 +1223,19 @@ export function parseArcTransferArtifact(
   };
 }
 
+type ArcTaskArtifactRecovery = {
+  version: 1;
+  quoteId: string;
+  payloadHash: string;
+  attestationIat: number;
+  quoteExpiresAt: number;
+  buildExpiresAt: number;
+  paymentNonce: string;
+  paymentTransferId: string;
+  settlementTransactionHash: string;
+  fundingApprovalHash: string;
+};
+
 class ArcPurchasedArtifact {
   readonly #plan: ArcTransferPlan;
   readonly #servicePurchaseReceipt: unknown;
@@ -1181,6 +1246,7 @@ class ArcPurchasedArtifact {
   readonly #gasBudget?: ArcExecutionGasBudget;
   readonly #mainnetApproved: boolean;
   readonly #mainnetTransaction?: ArcMainnetTransactionPreview;
+  readonly #artifactRecovery?: ArcTaskArtifactRecovery;
   readonly #persistCheckpoint: (checkpoint?: Record<string, unknown>) => Promise<{ started: boolean; state?: Record<string, any> }>;
 
   get plan(): ArcTransferPlan {
@@ -1203,6 +1269,7 @@ class ArcPurchasedArtifact {
     gasBudget?: ArcExecutionGasBudget,
     mainnetApproved = false,
     mainnetTransaction?: ArcMainnetTransactionPreview,
+    artifactRecovery?: ArcTaskArtifactRecovery,
   ) {
     requireThat(capability === arcExecutionKitCapability, "Executable artifacts can only be created from ArcExecutionKit");
     arcNetwork(plan.chainId);
@@ -1218,6 +1285,7 @@ class ArcPurchasedArtifact {
     this.#gasBudget = gasBudget && Object.freeze({ ...gasBudget });
     this.#mainnetApproved = mainnetApproved;
     this.#mainnetTransaction = mainnetTransaction && immutableSnapshot(mainnetTransaction);
+    this.#artifactRecovery = artifactRecovery && immutableSnapshot(artifactRecovery);
     if (plan.chainId === ARC_MAINNET_CHAIN_ID) {
       requireThat(
         mainnetApproved && mainnetTransaction?.kind === "business_transfer" &&
@@ -1238,6 +1306,42 @@ class ArcPurchasedArtifact {
     await this.#persistCheckpoint(state);
   }
 
+  private verifyMainnetExecutionEvidence(state: Record<string, any>) {
+    if (!this.#mainnetTransaction) return;
+    requireThat(
+      stable(state.artifactRecovery ?? null) === stable(this.#artifactRecovery ?? null),
+      "Execution journal artifact recovery evidence is missing or changed",
+    );
+    const revalidation = state.mainnetRevalidation;
+    if (state.phase !== "prepared" || state.circle) {
+      requireThat(revalidation, "Execution journal is missing Mainnet revalidation evidence");
+    }
+    if (!revalidation) return;
+    const approved = this.#mainnetTransaction;
+    const budget = this.#gasBudget;
+    requireThat(budget, "Arc Mainnet execution requires its original gas budget");
+    requireThat(
+      revalidation.chainId === ARC_MAINNET_CHAIN_ID && Number.isFinite(Date.parse(revalidation.checkedAt)) &&
+        revalidation.latestNonce === approved.nonce && revalidation.pendingNonce === approved.nonce &&
+        stable(revalidation.approvedTransaction) === stable(approved) &&
+        revalidation.executionTransaction?.kind === approved.kind &&
+        revalidation.executionTransaction?.chainId === approved.chainId &&
+        revalidation.executionTransaction?.nonce === approved.nonce &&
+        revalidation.executionTransaction?.to === approved.to &&
+        revalidation.executionTransaction?.valueWei === approved.valueWei &&
+        revalidation.executionTransaction?.data === approved.data &&
+        revalidation.executionTransaction?.gasLimitWei === approved.gasLimitWei &&
+        BigInt(revalidation.gasPriceWei) > 0n && BigInt(revalidation.gasPriceWei) <= BigInt(revalidation.executionTransaction.gasPriceWei) &&
+        BigInt(revalidation.executionTransaction.gasPriceWei) >= BigInt(approved.gasPriceWei) &&
+        BigInt(revalidation.executionTransaction.gasPriceWei) <= budget.maxGasPriceWei &&
+        BigInt(revalidation.executionTransaction.maxGasCostWei) === BigInt(approved.gasLimitWei) * BigInt(revalidation.executionTransaction.gasPriceWei) &&
+        budget.alreadySpentGasWei + BigInt(revalidation.executionTransaction.maxGasCostWei) <= budget.maxAggregateGasWei &&
+        BigInt(revalidation.estimatedGas) > 0n && BigInt(revalidation.estimatedGas) <= BigInt(approved.gasLimitWei) &&
+        BigInt(revalidation.payerBalanceWei) >= BigInt(approved.valueWei) + BigInt(revalidation.executionTransaction.maxGasCostWei),
+      "Execution journal Mainnet revalidation differs from the approved transaction or limits",
+    );
+  }
+
   private async executeLocked(confirm?: (review: CircleCommandReview) => boolean | Promise<boolean>): Promise<ArcExecutionResult> {
     const persisted = await this.#persistCheckpoint();
     let state = persisted.state as Record<string, any> | undefined;
@@ -1251,6 +1355,7 @@ class ArcPurchasedArtifact {
         idempotencyKey: `task-${this.#plan.artifactHash.slice(0, 32)}`,
         ...(gasBudgetPolicy ? { gasBudget: gasBudgetPolicy } : {}),
         ...(this.#mainnetTransaction ? { approvedTransaction: this.#mainnetTransaction } : {}),
+        ...(this.#artifactRecovery ? { artifactRecovery: this.#artifactRecovery } : {}),
         phase: "prepared",
       };
       await this.saveExecution(state);
@@ -1260,6 +1365,7 @@ class ArcPurchasedArtifact {
     requireThat(stable(state.servicePurchaseReceipt) === stable(this.#servicePurchaseReceipt), "Execution journal service receipt differs from the verified purchase");
     if (this.#mainnetTransaction) requireThat(stable(state.approvedTransaction) === stable(this.#mainnetTransaction), "Execution journal business transaction differs from the approved pre-purchase preview");
     if (gasBudgetPolicy) requireThat(state.version === 2 && stable(state.gasBudget) === stable(gasBudgetPolicy), "Execution journal gas budget differs from the approved policy; retain the original journal and reconcile it first");
+    this.verifyMainnetExecutionEvidence(state);
     if (state.phase === "complete") {
       requireThat(state.circle?.transactionHash === state.receipt?.transactionHash, "Stored Circle and Arc records do not correlate");
       const verifiedReceipt = await verifyArcTransferReceipt(state.circle.transactionHash, this.#rpcUrl, this.#plan.chainId, {
@@ -1282,6 +1388,7 @@ class ArcPurchasedArtifact {
         const gasPrice = BigInt(transactionReceipt.effectiveGasPrice ?? minedTransaction.gasPrice);
         const gasCostWei = gasUsed * gasPrice;
         const rawGasCostWei = state.circle.raw?.receipt?.gasCostWei;
+        const executionTransaction = state.mainnetRevalidation?.executionTransaction as ArcMainnetTransactionPreview | undefined;
         requireThat(
           signer.toLowerCase() === this.#plan.sender.toLowerCase() && parsed.type === "legacy" &&
             BigInt(parsed.chainId) === BigInt(ARC_MAINNET_CHAIN_ID) && BigInt(parsed.nonce) === BigInt(state.circle.raw.nonce) &&
@@ -1289,9 +1396,9 @@ class ArcPurchasedArtifact {
             parsed.to?.toLowerCase() === this.#plan.recipient.toLowerCase() && BigInt(parsed.value) === BigInt(this.#plan.amountWei) &&
             String(parsed.data ?? "0x").toLowerCase() === "0x" && transactionReceipt.status === "0x1" &&
             gasUsed > 0n && gasUsed <= BigInt(parsed.gas) && gasPrice <= budget.maxGasPriceWei &&
-            this.#mainnetTransaction && BigInt(parsed.nonce) === BigInt(this.#mainnetTransaction.nonce) &&
-            BigInt(parsed.gas) === BigInt(this.#mainnetTransaction.gasLimitWei) &&
-            BigInt(parsed.gasPrice) === BigInt(this.#mainnetTransaction.gasPriceWei) &&
+            this.#mainnetTransaction && executionTransaction && BigInt(parsed.nonce) === BigInt(this.#mainnetTransaction.nonce) &&
+            BigInt(parsed.gas) === BigInt(executionTransaction.gasLimitWei) &&
+            BigInt(parsed.gasPrice) === BigInt(executionTransaction.gasPriceWei) &&
             rawGasCostWei === gasCostWei.toString(),
           "Stored Mainnet transaction, signer, or gas record differs from the confirmed reviewed transfer",
         );
@@ -1310,7 +1417,11 @@ class ArcPurchasedArtifact {
     let circle = state.circle as CircleTransferResult | undefined;
     if (!circle) {
       if (this.#plan.chainId === ARC_MAINNET_CHAIN_ID) {
-        circle = await this.sendBoundedMainnetTransfer(transfer, state, async (review) => this.#mainnetApproved || Boolean(await confirm?.(review)));
+        circle = await this.sendBoundedMainnetTransfer(transfer, state, async (review) => {
+          const approvedPrice = this.#mainnetTransaction?.gasPriceWei;
+          if (review.transaction?.gasPriceWei !== approvedPrice) return Boolean(await confirm?.(review));
+          return this.#mainnetApproved || Boolean(await confirm?.(review));
+        });
       } else {
         const review = this.#wallet.reviewTransfer(transfer);
         if (!(await confirm?.(review))) throw new Error("Circle wallet transfer rejected by the reviewer");
@@ -1381,19 +1492,30 @@ class ArcPurchasedArtifact {
     ]);
     const nonce = BigInt(approved.nonce);
     const gas = BigInt(approved.gasLimitWei);
-    const approvedGasPrice = BigInt(approved.gasPriceWei);
     requireThat(latestNonce === pendingNonce && latestNonce === nonce, "Arc Mainnet nonce differs from the approved transaction; preserve the journal and reconcile first");
-    requireThat(gasPrice > 0n && gasPrice <= approvedGasPrice && approvedGasPrice <= budget.maxGasPriceWei, "Arc Mainnet gas price changed above the approved transaction limit");
     requireThat(estimate > 0n && estimate <= gas, "Arc Mainnet transfer estimate exceeds the fixed native-transfer gas limit");
-    const maxGasCostWei = BigInt(approved.maxGasCostWei);
-    requireThat(budget.alreadySpentGasWei + maxGasCostWei <= budget.maxAggregateGasWei, "Arc Mainnet worst-case gas exceeds the approved aggregate limit");
+    const executionTransaction = executionTransactionAtGasPrice(approved, budget, gasPrice);
+    const executionGasPrice = BigInt(executionTransaction.gasPriceWei);
+    const maxGasCostWei = BigInt(executionTransaction.maxGasCostWei);
     requireThat(balance >= BigInt(this.#plan.amountWei) + maxGasCostWei, "Arc Mainnet payer balance cannot cover the exact transfer and bounded gas");
     requireThat(approved.kind === "business_transfer" && approved.to === this.#plan.recipient && approved.valueWei === this.#plan.amountWei && approved.data === "0x", "Approved Mainnet transaction differs from the purchased artifact");
+    state.mainnetRevalidation = {
+      checkedAt: new Date().toISOString(),
+      chainId: ARC_MAINNET_CHAIN_ID,
+      latestNonce: latestNonce.toString(),
+      pendingNonce: pendingNonce.toString(),
+      gasPriceWei: gasPrice.toString(),
+      estimatedGas: estimate.toString(),
+      payerBalanceWei: balance.toString(),
+      approvedTransaction: immutableSnapshot(approved),
+      executionTransaction,
+    };
+    await this.saveExecution(state);
     const unsigned: ArcUnsignedEvmTransaction = Object.freeze({
       chainId: ARC_MAINNET_CHAIN_ID,
       nonce,
       gas,
-      gasPrice: approvedGasPrice,
+      gasPrice: executionGasPrice,
       to: approved.to,
       value: BigInt(this.#plan.amountWei),
       data: approved.data,
@@ -1403,11 +1525,11 @@ class ArcPurchasedArtifact {
     const review: CircleCommandReview = immutableSnapshot({
       ...base,
       command: ["Arc Mainnet signed transaction"],
-      summary: `Arc Mainnet ${this.#plan.amountUsdc} USDC transfer from ${this.#plan.sender} to ${this.#plan.recipient}; nonce ${nonce}; ${gas} gas at ${approvedGasPrice} wei; maximum aggregate gas ${budget.maxAggregateGasWei} wei`,
+      summary: `Arc Mainnet ${this.#plan.amountUsdc} USDC transfer from ${this.#plan.sender} to ${this.#plan.recipient}; nonce ${nonce}; ${gas} gas at ${executionGasPrice} wei; maximum aggregate gas ${budget.maxAggregateGasWei} wei`,
       transaction: {
         nonce: nonce.toString(), to: approved.to, valueWei: this.#plan.amountWei,
         data: approved.data, gasLimitWei: gas.toString(),
-        gasPriceWei: approvedGasPrice.toString(), maxGasCostWei: maxGasCostWei.toString(),
+        gasPriceWei: executionGasPrice.toString(), maxGasCostWei: maxGasCostWei.toString(),
       },
     });
     if (!(await confirm(review))) throw new Error("Arc Mainnet transaction rejected by the reviewer");
@@ -1425,7 +1547,7 @@ class ArcPurchasedArtifact {
     const circle: CircleTransferResult = {
       transactionHash,
       state: "broadcast_pending",
-      raw: { rawTransaction, nonce: unsigned.nonce.toString(), gas: gas.toString(), gasPriceWei: gasPrice.toString(), maxGasCostWei: maxGasCostWei.toString() },
+      raw: { rawTransaction, nonce: unsigned.nonce.toString(), gas: gas.toString(), gasPriceWei: executionGasPrice.toString(), maxGasCostWei: maxGasCostWei.toString() },
     };
     state.circle = circle;
     state.phase = "submission_pending";
@@ -1833,7 +1955,39 @@ class ArcExecutionQuote {
         arcRpc(this.#rpcUrl, this.#rpcFetch, "eth_getTransactionCount", [persisted.review.payer, "pending"]).then(BigInt),
       ]);
       requireThat(latest === pending && latest === BigInt(business.nonce), "Arc Mainnet business nonce differs from the approved preview after funding");
-      requireThat(this.#preview.expiresAt > this.now() + 30, "Task quote expired during Gateway funding; preserve the original funding journal and do not sign payment");
+      let paidRecovery = false;
+      if (taskState.paymentSignature && ["settlement_pending", "complete"].includes(taskState.phase)) {
+        const { required, accepted, issuedAt } = validateStoredQuote(
+          taskState.quote,
+          taskState.requiredHeader,
+          this.#request,
+          this.#client.options,
+        );
+        const payment = JSON.parse(Buffer.from(taskState.paymentSignature, "base64").toString("utf8"));
+        const authorization = taskState.authorization;
+        const artifact = object(JSON.parse(Buffer.from(String(taskState.bytes ?? ""), "base64").toString("utf8")), "Stored Task artifact");
+        const build = object(artifact.build, "Stored Task build");
+        paidRecovery = Boolean(
+          taskState.quote?.quoteId === persisted.review.taskQuote.quoteId &&
+          taskState.quote?.payloadHash === persisted.review.taskQuote.payloadHash &&
+          taskState.quote?.requestHash === persisted.review.taskQuote.requestHash &&
+          taskState.gatewayFunding?.journalHash === persisted.approvalHash &&
+          taskState.taskAuthorization?.signature &&
+          Number.isSafeInteger(build.expiresAt) && build.expiresAt > issuedAt + 15 && build.expiresAt >= taskState.quote.expiresAt &&
+          typeof taskState.bytes === "string" && hash(Buffer.from(taskState.bytes, "base64")) === taskState.quote.payloadHash &&
+          taskState.receipt?.success === true && taskState.receipt?.network === `eip155:${ARC_MAINNET_CHAIN_ID}` &&
+          address(taskState.receipt?.payer) === persisted.review.payer &&
+          typeof taskState.receipt?.transaction === "string" && taskState.receipt.transaction.length > 0 &&
+          address(authorization?.from) === persisted.review.payer &&
+          address(authorization?.to) === persisted.review.merchant &&
+          authorization?.value === persisted.review.feeMicrousd &&
+          authorization?.nonce === persisted.review.paymentNonce &&
+          payment.x402Version === 2 && stable(payment.accepted) === stable(accepted) &&
+          stable(payment.payload?.authorization) === stable(authorization) &&
+          payment.resource?.url === required.resource.url,
+        );
+      }
+      requireThat(this.#preview.expiresAt > this.now() + 30 || paidRecovery, "Task quote expired during Gateway funding; preserve the original funding journal and do not sign payment");
       persisted.status = "funded";
       persisted.spentGasWei = Object.values(persisted.transactions)
         .filter((entry: any) => entry.phase === "confirmed")
@@ -1844,6 +1998,57 @@ class ArcExecutionQuote {
       journal.spentGasWei = persisted.spentGasWei;
       journal.transactions = persisted.transactions;
       return persisted;
+    });
+  }
+
+  private async recoverExpiredArtifact(
+    bytes: Buffer,
+    receipt: unknown,
+    settlement: CircleGatewaySettlement | undefined,
+    funding: ArcMainnetFundingJournal | undefined,
+  ): Promise<ArcTaskArtifactRecovery | undefined> {
+    if (this.#request.chainId !== ARC_MAINNET_CHAIN_ID) return undefined;
+    const artifact = object(JSON.parse(bytes.toString("utf8")), "Task artifact");
+    const build = object(artifact.build, "Task build");
+    requireThat(Number.isSafeInteger(build.expiresAt), "Task Build expiry is malformed");
+    if (build.expiresAt > this.now() + 15) return undefined;
+    requireThat(funding && settlement?.status === "confirmed", "Expired Mainnet artifact requires the original paid quote and independently confirmed Gateway settlement");
+    const state = await readPrivateJson(this.#client.options.stateDirectory, "state.json");
+    const { required, accepted, issuedAt } = validateStoredQuote(
+      state.quote,
+      state.requiredHeader,
+      this.#request,
+      this.#client.options,
+    );
+    const wire = JSON.parse(Buffer.from(String(state.paymentSignature ?? ""), "base64").toString("utf8"));
+    requireThat(
+      state.phase === "complete" && state.quote?.quoteId === this.#preview.quoteId &&
+        state.quote?.payloadHash === this.#preview.payloadHash && state.quote?.requestHash === this.#preview.requestHash &&
+        build.expiresAt > issuedAt + 15 && build.expiresAt >= state.quote.expiresAt &&
+        state.bytes === bytes.toString("base64") && hash(bytes) === this.#preview.payloadHash &&
+        state.taskAuthorization?.signature && state.authorization?.nonce === accepted.extra.aomiTaskNonce &&
+        state.authorization?.from === address(this.#request.sender) && state.authorization?.to === address(this.#client.options.recipient) &&
+        state.authorization?.value === accepted.amount && state.gatewayFunding?.journalHash === funding.approvalHash &&
+        state.receipt?.success === true && stable(state.receipt) === stable(receipt) &&
+        state.receipt.network === `eip155:${ARC_MAINNET_CHAIN_ID}` &&
+        state.receipt.transaction === settlement.transferId && state.settlement?.status === "confirmed" &&
+        state.settlement.transactionHash === settlement.transactionHash &&
+        wire.x402Version === 2 && stable(wire.accepted) === stable(accepted) &&
+        stable(wire.payload?.authorization) === stable(state.authorization) &&
+        wire.resource?.url === required.resource.url,
+      "Expired Mainnet artifact lacks an intact original authorization, receipt, settlement, or pre-expiry storage record",
+    );
+    return immutableSnapshot({
+      version: 1,
+      quoteId: this.#preview.quoteId,
+      payloadHash: this.#preview.payloadHash,
+      attestationIat: issuedAt,
+      quoteExpiresAt: state.quote.expiresAt,
+      buildExpiresAt: build.expiresAt,
+      paymentNonce: accepted.extra.aomiTaskNonce,
+      paymentTransferId: state.receipt.transaction,
+      settlementTransactionHash: settlement.transactionHash,
+      fundingApprovalHash: funding.approvalHash,
     });
   }
 
@@ -1869,7 +2074,15 @@ class ArcExecutionQuote {
     try {
       const result = await this.#client.purchase(this.#request);
       if (result.status === "pending") return result;
-      const plan = parseArcTransferArtifact(result.bytes, this.#request, this.#preview, this.#amountUsdc, undefined, this.#reference);
+      const artifactRecovery = await this.recoverExpiredArtifact(result.bytes, result.receipt, result.settlement, mainnetFunding);
+      const plan = parseArcTransferArtifact(
+        result.bytes,
+        this.#request,
+        this.#preview,
+        this.#amountUsdc,
+        artifactRecovery?.attestationIat,
+        this.#reference,
+      );
       await this.#client[initializeTaskExecutionLedger](plan.artifactHash, result.receipt);
       let gasBudget = this.#gasBudget;
       let approvedBusinessTransaction: ArcMainnetTransactionPreview | undefined;
@@ -1907,6 +2120,7 @@ class ArcExecutionQuote {
         gasBudget,
         mainnetApproved,
         approvedBusinessTransaction,
+        artifactRecovery,
       );
     } finally {
       this.#setPurchaseApproval(undefined);

@@ -69,6 +69,7 @@ function fixture(
   change?: (requirement: any) => void,
   taskRequest: TaskRequest = request,
   changeClaims?: (claims: any) => void,
+  buildExpiresAt = Math.floor(Date.now() / 1_000) + 600,
 ) {
   const keys = generateKeyPairSync("ed25519");
   const jwk = { ...keys.publicKey.export({ format: "jwk" }), kid: "trusted", alg: "EdDSA" };
@@ -91,7 +92,7 @@ function fixture(
       status: "simulated",
       actions: [{ chain_id: taskRequest.chainId, from: taskRequest.sender, to: target, value: amountWei, data: "0x", label: "invoice", kind: "native_transfer" }],
       simulation: { status: "passed" },
-      expiresAt: Math.floor(Date.now() / 1_000) + 600,
+      expiresAt: buildExpiresAt,
       digest: `sha256:${"a".repeat(64)}`,
     },
     report: {
@@ -190,6 +191,7 @@ function mainnetGatewayFixture(payerAddress: string) {
     data: "0x",
   };
   let gatewayFunded = false;
+  let settlementConfirmed = true;
   return {
     transferId,
     nonce,
@@ -207,11 +209,12 @@ function mainnetGatewayFixture(payerAddress: string) {
         recipientNetwork: "eip155:5042",
         token: "USDC",
         amount: "1000000",
-        status: "confirmed",
+        status: settlementConfirmed ? "confirmed" : "batched",
         txHash: transactionHash,
       }] }));
     },
     setGatewayFunded(value: boolean) { gatewayFunded = value; },
+    setSettlementConfirmed(value: boolean) { settlementConfirmed = value; },
     transaction: {
       hash: transactionHash,
       chainId: "0x13b2",
@@ -231,7 +234,7 @@ function mainnetGatewayFixture(payerAddress: string) {
   };
 }
 
-async function purchaseThroughKit(args: {
+async function purchaseThroughKitResult(args: {
   chainId: typeof ARC_MAINNET_CHAIN_ID | typeof ARC_TESTNET_CHAIN_ID;
   intent: { intent: string; reference: string; sender: string; recipient: string; amountUsdc: string; maxGasUnits?: number };
   directory: string;
@@ -241,6 +244,9 @@ async function purchaseThroughKit(args: {
   approval?: (preview: any) => boolean | Promise<boolean>;
   gasBudget?: { maxAggregateGasWei: bigint; alreadySpentGasWei: bigint; maxGasPriceWei: bigint };
   fixtureData?: ReturnType<typeof fixture>;
+  now?: () => number;
+  buildExpiresAt?: number;
+  taskFetch?: typeof fetch;
 }) {
   const amountWei = (BigInt(args.intent.amountUsdc.split(".")[0]) * 10n ** 18n + BigInt((args.intent.amountUsdc.split(".")[1] ?? "").padEnd(18, "0"))).toString();
   const taskRequest: TaskRequest = {
@@ -255,7 +261,7 @@ async function purchaseThroughKit(args: {
       minimumReceived: [],
     },
   };
-  const data = args.fixtureData ?? fixture(undefined, taskRequest);
+  const data = args.fixtureData ?? fixture(undefined, taskRequest, undefined, args.buildExpiresAt);
   const fetchTask: typeof fetch = async (_url, init) => {
     if (new Headers(init?.headers).has("payment-signature")) {
       const paymentReceipt = Buffer.from(JSON.stringify({
@@ -280,8 +286,8 @@ async function purchaseThroughKit(args: {
     gatewayFetch: args.gatewayFetch,
     gasBudget: args.gasBudget,
     idempotencyKey: () => idempotencyKey,
-    now: () => now,
-    fetch: fetchTask,
+    now: args.now ?? (() => now),
+    fetch: args.taskFetch ?? fetchTask,
   };
   const kit = args.chainId === ARC_MAINNET_CHAIN_ID
     ? ArcExecutionKit.arcMainnet(options)
@@ -291,7 +297,11 @@ async function purchaseThroughKit(args: {
   assert.equal(Object.isFrozen(quote.preview), true);
   assert.throws(() => { (quote as any).client = { purchase: async () => ({ status: "complete" }) }; }, TypeError);
   assert.throws(() => { (quote.preview.summary as any).source.chainId = ARC_TESTNET_CHAIN_ID; }, TypeError);
-  const purchased = await quote.purchase(args.approval ?? (() => true));
+  return quote.purchase(args.approval ?? (() => true));
+}
+
+async function purchaseThroughKit(args: Parameters<typeof purchaseThroughKitResult>[0]) {
+  const purchased = await purchaseThroughKitResult(args);
   if ("status" in purchased) throw new Error("Test purchase unexpectedly pending");
   return purchased;
 }
@@ -667,6 +677,16 @@ test("accepts only one exact successful Arc native-USDC artifact", () => {
   const bytes = Buffer.from(JSON.stringify(artifact));
   const plan = parseArcTransferArtifact(bytes, boundedRequest, quote, "1", now);
   assert.throws(() => parseArcTransferArtifact(bytes, boundedRequest, quote, "0.01", now), /does not match/);
+  const expiredAtAttestation = fixture(undefined, boundedRequest, undefined, now);
+  assert.throws(
+    () => parseArcTransferArtifact(expiredAtAttestation.bytes, boundedRequest, expiredAtAttestation.quote, "1", expiredAtAttestation.claims.iat),
+    /Task build has expired/,
+  );
+  const quoteOutlivesBuild = fixture(undefined, boundedRequest, undefined, now + 20);
+  assert.throws(
+    () => parseArcTransferArtifact(quoteOutlivesBuild.bytes, boundedRequest, quoteOutlivesBuild.quote, "1", now),
+    /quote outlives its Build/,
+  );
   assert.equal(plan.recipient, target);
   assert.equal(plan.amountWei, amountWei);
   assert.equal(plan.buildDigest, "b".repeat(64));
@@ -823,6 +843,7 @@ test("previews exact Mainnet funding and broadcasts one approved business transa
   const value = 10_000_000_000_000_000n;
   const network = arcNetwork(ARC_MAINNET_CHAIN_ID);
   const settlement = mainnetGatewayFixture(account.address);
+  let gasPrice = 1_000_000_000n;
   const transactions = new Map<string, Record<string, any>>();
   const receipts = new Map<string, Record<string, any>>();
   let latestNonce = 0n;
@@ -869,7 +890,7 @@ test("previews exact Mainnet funding and broadcasts one approved business transa
     if (body.method === "eth_chainId") result = "0x13b2";
     else if (body.method === "eth_getBlockByNumber") result = { number: "0x100", hash: "0x" + "ab".repeat(32) };
     else if (body.method === "eth_getTransactionCount") result = "0x" + latestNonce.toString(16);
-    else if (body.method === "eth_gasPrice") result = "0x3b9aca00";
+    else if (body.method === "eth_gasPrice") result = `0x${gasPrice.toString(16)}`;
     else if (body.method === "eth_getBalance") result = "0x1000000000000000000";
     else if (body.method === "eth_getCode") {
       const codeAddress = String(first ?? "").toLowerCase();
@@ -894,6 +915,7 @@ test("previews exact Mainnet funding and broadcasts one approved business transa
       const parsed = parseTransaction(raw) as Record<string, any>;
       const nonce = BigInt(parsed.nonce);
       const gas = BigInt(parsed.gas);
+      const txGasPrice = BigInt(parsed.gasPrice);
       const to = String(parsed.to).toLowerCase();
       const data = String(parsed.data ?? "0x").toLowerCase();
       if (to === network.usdc && data.startsWith("0x095ea7b3")) allowance = 1_000_000n;
@@ -906,12 +928,12 @@ test("previews exact Mainnet funding and broadcasts one approved business transa
       transactions.set(txHash, {
         hash: txHash, chainId: "0x13b2", nonce: "0x" + nonce.toString(16), from: account.address,
         to, value: "0x" + BigInt(parsed.value ?? 0n).toString(16), input: data,
-        gas: "0x" + gas.toString(16), gasPrice: "0x3b9aca00",
+        gas: "0x" + gas.toString(16), gasPrice: `0x${txGasPrice.toString(16)}`,
       });
       const used = to === network.usdc ? 0xafc8n : to === network.gatewayWallet ? 0x15f90n : 21_000n;
       receipts.set(txHash, {
         transactionHash: txHash, from: account.address, to, blockNumber: "0x101", blockHash: "0x" + "cd".repeat(32),
-        status: "0x1", gasUsed: "0x" + used.toString(16), effectiveGasPrice: "0x3b9aca00", logs: [],
+        status: "0x1", gasUsed: "0x" + used.toString(16), effectiveGasPrice: `0x${txGasPrice.toString(16)}`, logs: [],
       });
       result = txHash;
     } else if (body.method === "eth_getTransactionByHash") {
@@ -958,21 +980,39 @@ test("previews exact Mainnet funding and broadcasts one approved business transa
     assert.throws(() => { (purchased as any).plan = { ...purchased.plan, amountWei: "1" }; }, TypeError);
     assert.throws(() => { (purchased as any).stateDirectory = os.tmpdir(); }, TypeError);
     assert.throws(() => { (purchased as any).gasBudget = { alreadySpentGasWei: 0n }; }, TypeError);
-    const first = await purchased.execute();
+    gasPrice = 100_000_000_001n;
+    await assert.rejects(purchased.execute(() => true), /gas price exceeds the approved hard cap/);
+    assert.equal(transactionSignatures, 2, "a gas price above the explicit cap must stop before the business signature");
+    assert.equal(broadcasts, 2, "a gas price above the explicit cap must stop before any business broadcast");
+    gasPrice = 2_000_000_000n;
+    let executionReviews = 0;
+    const first = await purchased.execute((review) => {
+      executionReviews += 1;
+      assert.equal(review.transaction?.nonce, "2");
+      assert.equal(review.transaction?.to, target);
+      assert.equal(review.transaction?.valueWei, value.toString());
+      assert.equal(review.transaction?.gasPriceWei, "2000000000");
+      assert.equal(review.transaction?.maxGasCostWei, "42000000000000");
+      return true;
+    });
     const replay = await purchased.execute(() => { throw new Error("A completed transfer must not prompt again"); });
     assert.equal(first.receipt.transactionHash, keccak256(businessRaw!));
     assert.equal(replay.receipt.transactionHash, first.receipt.transactionHash);
+    assert.equal(BigInt((parseTransaction(businessRaw!) as any).gasPrice), 2_000_000_000n);
     assert.equal(broadcasts, 3);
     assert.equal(transactionSignatures, 3);
     assert.equal(taskAuthorizations, 1);
     assert.equal(paymentAuthorizations, 1);
     assert.equal(depositEstimates, 1);
     assert.equal(reviews, 1);
+    assert.equal(executionReviews, 1, "a refreshed gas price requires one explicit execution review");
     const journal = JSON.parse(await readFile(path.join(directory, "execution.json"), "utf8")).executionJournal;
     assert.equal(journal.phase, "complete");
     assert.equal(journal.circle.raw.nonce, "2");
     assert.ok(journal.circle.raw.rawTransaction);
     assert.equal(journal.gasBudget.maxAggregateGasWei, "1000000000000000");
+    assert.equal(journal.mainnetRevalidation.executionTransaction.gasPriceWei, "2000000000");
+    assert.equal(journal.mainnetRevalidation.executionTransaction.maxGasCostWei, "42000000000000");
     assert.ok(BigInt(journal.gasBudget.alreadySpentGasWei) > 0n);
     assert.ok(BigInt(journal.gasBudget.alreadySpentGasWei) < BigInt(journal.gasBudget.maxAggregateGasWei), "Circle relayer settlement gas is reported separately from payer-paid gas");
     assert.equal(journal.gasBudget.maxGasPriceWei, "100000000000");
@@ -1000,6 +1040,187 @@ test("previews exact Mainnet funding and broadcasts one approved business transa
     await writeFile(path.join(directory, "execution.json"), JSON.stringify(executionLedger));
     await assert.rejects(purchased.execute(), /journal gas budget differs/);
     assert.equal(broadcasts, 3);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("recovers a paid Mainnet artifact after delayed Gateway settlement without another payment", async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "arc-mainnet-delayed-settlement-"));
+  const account = privateKeyToAccount(`0x${"01".padStart(64, "0")}`);
+  const network = arcNetwork(ARC_MAINNET_CHAIN_ID);
+  const settlement = mainnetGatewayFixture(account.address);
+  settlement.setGatewayFunded(true);
+  settlement.setSettlementConfirmed(false);
+  const intent = {
+    intent: "Pay one QA invoice",
+    reference: "QA-MAINNET-RECOVERY",
+    sender: account.address,
+    recipient,
+    amountUsdc: "0.01",
+    maxGasUnits: 21_000,
+  };
+  const taskRequest: TaskRequest = {
+    intent: intent.intent,
+    chainId: ARC_MAINNET_CHAIN_ID,
+    sender: account.address,
+    payer: account.address,
+    constraints: {
+      maxOutgoingUsdcWei: "10000000000000000",
+      maxGasUnits: 21_000,
+      allowedTargets: [recipient],
+      minimumReceived: [],
+    },
+  };
+  const fixtureData = fixture(undefined, taskRequest, undefined, 100_600);
+  const transactions = new Map<string, Record<string, any>>();
+  const receipts = new Map<string, Record<string, any>>();
+  let latestNonce = 0n;
+  let broadcasts = 0;
+  let transactionSignatures = 0;
+  let paymentAuthorizations = 0;
+  let taskAuthorizations = 0;
+  let taskRequests = 0;
+  const wallet = new CircleArcWallet({
+    walletAddress: account.address,
+    transactionSigner: async (transaction) => {
+      transactionSignatures += 1;
+      return account.signTransaction({
+        type: "legacy", chainId: transaction.chainId, nonce: Number(transaction.nonce),
+        gas: transaction.gas, gasPrice: transaction.gasPrice, to: transaction.to,
+        value: transaction.value, data: transaction.data,
+      });
+    },
+    runner: async (_command, args) => {
+      if (args.slice(0, 3).join(" ") === "wallet sign typed-data") {
+        const typedData = JSON.parse(args[3]);
+        if (typedData.primaryType === "TaskAuthorization") taskAuthorizations += 1;
+        if (typedData.primaryType === "TransferWithAuthorization") paymentAuthorizations += 1;
+        return { stdout: `0x${"aa".repeat(65)}`, stderr: "" };
+      }
+      throw new Error("Mainnet recovery must use one bounded signed transaction");
+    },
+  });
+  const rpcFetch: typeof fetch = async (_url, init) => {
+    const body = JSON.parse(String(init?.body));
+    const [first] = body.params ?? [];
+    let result: any;
+    if (body.method === "eth_chainId") result = "0x13b2";
+    else if (body.method === "eth_getBlockByNumber") result = { number: "0x100", hash: `0x${"ab".repeat(32)}` };
+    else if (body.method === "eth_getTransactionCount") result = `0x${latestNonce.toString(16)}`;
+    else if (body.method === "eth_gasPrice") result = "0x3b9aca00";
+    else if (body.method === "eth_getBalance") result = "0x1000000000000000000";
+    else if (body.method === "eth_getCode") {
+      result = [String(network.usdc).toLowerCase(), String(network.gatewayWallet).toLowerCase()].includes(String(first).toLowerCase()) ? "0x6000" : "0x";
+    } else if (body.method === "eth_call") {
+      const data = String(first?.data ?? "").toLowerCase();
+      result = data.startsWith("0xdd62ed3e") ? "0x0"
+        : data.startsWith("0x70a08231") ? "0x989680"
+          : "0x1";
+    } else if (body.method === "eth_estimateGas") result = "0x5208";
+    else if (body.method === "eth_sendRawTransaction") {
+      broadcasts += 1;
+      const raw = first as `0x${string}`;
+      const txHash = keccak256(raw);
+      const parsed = parseTransaction(raw) as Record<string, any>;
+      const nonce = BigInt(parsed.nonce);
+      transactions.set(txHash, {
+        hash: txHash, chainId: "0x13b2", nonce: `0x${nonce.toString(16)}`, from: account.address,
+        to: String(parsed.to).toLowerCase(), value: `0x${BigInt(parsed.value ?? 0n).toString(16)}`,
+        input: String(parsed.data ?? "0x"), gas: `0x${BigInt(parsed.gas).toString(16)}`, gasPrice: "0x3b9aca00",
+      });
+      receipts.set(txHash, {
+        transactionHash: txHash, from: account.address, to: String(parsed.to).toLowerCase(),
+        blockNumber: "0x101", blockHash: `0x${"cd".repeat(32)}`, status: "0x1",
+        gasUsed: "0x5208", effectiveGasPrice: "0x3b9aca00", logs: [],
+      });
+      latestNonce = nonce + 1n;
+      result = txHash;
+    } else if (body.method === "eth_getTransactionByHash") {
+      result = String(first).toLowerCase() === settlement.transactionHash.toLowerCase()
+        ? settlement.transaction
+        : transactions.get(String(first).toLowerCase()) ?? null;
+    } else if (body.method === "eth_getTransactionReceipt") {
+      result = String(first).toLowerCase() === settlement.transactionHash.toLowerCase()
+        ? settlement.receipt
+        : receipts.get(String(first).toLowerCase()) ?? null;
+    }
+    return new Response(JSON.stringify({ result }));
+  };
+  const fetchTask: typeof fetch = async (_url, init) => {
+    taskRequests += 1;
+    if (new Headers(init?.headers).has("payment-signature")) {
+      const paymentReceipt = Buffer.from(JSON.stringify({
+        success: true,
+        network: `eip155:${ARC_MAINNET_CHAIN_ID}`,
+        payer: account.address,
+        transaction: settlement.transferId,
+      })).toString("base64");
+      return new Response(fixtureData.bytes, { status: 200, headers: { "payment-response": paymentReceipt } });
+    }
+    return new Response(JSON.stringify(fixtureData.quote), { status: 402, headers: { "payment-required": fixtureData.header } });
+  };
+  const shared = {
+    chainId: ARC_MAINNET_CHAIN_ID as typeof ARC_MAINNET_CHAIN_ID,
+    intent,
+    directory,
+    wallet,
+    rpcFetch,
+    gatewayFetch: settlement.gatewayFetch,
+    fixtureData,
+    taskFetch: fetchTask,
+    gasBudget: { maxAggregateGasWei: 100_000_000_000_000_000n, alreadySpentGasWei: 0n, maxGasPriceWei: 100_000_000_000n },
+  };
+  try {
+    const pending = await purchaseThroughKitResult({ ...shared, now: () => 100_000 });
+    assert.deepEqual(pending, { status: "pending" });
+    const pendingState = JSON.parse(await readFile(path.join(directory, "state.json"), "utf8"));
+    assert.equal(pendingState.phase, "settlement_pending");
+    assert.equal(pendingState.artifactStoredAt, undefined);
+    assert.ok(pendingState.paymentSignature);
+    pendingState.artifactStoredAt = 1;
+    await writeFile(path.join(directory, "state.json"), JSON.stringify(pendingState));
+    assert.equal(taskRequests, 2, "the only paid retrieval happens with the original signed payment");
+
+    settlement.setSettlementConfirmed(true);
+    const recovered = await purchaseThroughKitResult({ ...shared, now: () => 100_700 });
+    assert.ok(!("status" in recovered));
+    const result = await recovered.execute();
+    assert.equal(result.plan.expiresAt, 100_600);
+    const rawTransaction = (result.circle.raw as Record<string, unknown>).rawTransaction as `0x${string}`;
+    assert.equal(result.circle.transactionHash, keccak256(rawTransaction));
+    assert.equal(broadcasts, 1);
+    assert.equal(transactionSignatures, 1);
+    assert.equal(taskAuthorizations, 1);
+    assert.equal(paymentAuthorizations, 1);
+    assert.equal(taskRequests, 2, "recovery confirms the same settlement without another Task API purchase");
+
+    const journal = JSON.parse(await readFile(path.join(directory, "execution.json"), "utf8")).executionJournal;
+    assert.equal(journal.phase, "complete");
+    assert.equal(journal.circle.raw.nonce, "0");
+    assert.equal(journal.artifactRecovery.quoteId, fixtureData.quote.quoteId);
+    assert.equal(journal.artifactRecovery.attestationIat, 100_000);
+    assert.equal(journal.artifactRecovery.quoteExpiresAt, 100_300);
+    assert.equal(journal.artifactRecovery.artifactStoredAt, undefined);
+    assert.equal(journal.artifactRecovery.paymentNonce, settlement.nonce);
+    assert.equal(journal.artifactRecovery.settlementTransactionHash, settlement.transactionHash);
+    assert.equal(journal.mainnetRevalidation.chainId, ARC_MAINNET_CHAIN_ID);
+    assert.equal(journal.mainnetRevalidation.latestNonce, "0");
+    assert.equal(journal.mainnetRevalidation.pendingNonce, "0");
+    assert.equal(journal.mainnetRevalidation.estimatedGas, "21000");
+    assert.equal(journal.mainnetRevalidation.approvedTransaction.nonce, "0");
+
+    const executionLedger = JSON.parse(await readFile(path.join(directory, "execution.json"), "utf8"));
+    const missingRecovery = structuredClone(executionLedger);
+    delete missingRecovery.executionJournal.artifactRecovery;
+    await writeFile(path.join(directory, "execution.json"), JSON.stringify(missingRecovery));
+    await assert.rejects(recovered.execute(), /artifact recovery evidence/);
+
+    const missingRevalidation = structuredClone(executionLedger);
+    delete missingRevalidation.executionJournal.mainnetRevalidation;
+    await writeFile(path.join(directory, "execution.json"), JSON.stringify(missingRevalidation));
+    await assert.rejects(recovered.execute(), /Mainnet revalidation evidence/);
+    await writeFile(path.join(directory, "execution.json"), JSON.stringify(executionLedger));
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
