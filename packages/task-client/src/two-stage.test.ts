@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import canonicalize from "canonicalize";
+import { encodeAbiParameters, encodeFunctionData, keccak256, parseAbiItem, parseAbiParameters, stringToHex } from "viem";
 import { arcNetwork } from "@arc-canteen/circle-arc-wallet";
 import { TwoStageTaskClient, canonicalTaskRequest } from "./two-stage.ts";
 
@@ -153,25 +154,70 @@ test("an ambiguous preparation response reuses the persisted signature", async (
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
 
-test("Mainnet may buy retrieval while the preparation batch is pending, but withholds completion", async () => {
+test("Mainnet retrieval alone resumes both pending payments after their shared batch settles", async () => {
   const directory = await mkdtemp(path.join(os.tmpdir(), "aomi-two-stage-"));
   try {
     const f = fixture("300", undefined, 5042);
     const approvals: string[] = [];
+    let currentTime = now;
+    const network = arcNetwork(5042);
+    const transactionHash = `0x${"34".repeat(32)}`;
+    const batchId = `0x${"56".repeat(32)}`;
+    const batchSigner = "0xcccccccccccccccccccccccccccccccccccccccc";
+    const topicAddress = (value: string) => `0x${value.slice(2).toLowerCase().padStart(64, "0")}`;
+    const calldataBytes = encodeAbiParameters(parseAbiParameters(
+      "(address depositor, int256 value)[] deltas, bytes32 batchId, uint32 domain, address tokenAddress, address gatewayWalletAddress"),
+      [[{ depositor: payer, value: -10_300n }, { depositor: merchant, value: 10_300n }],
+        batchId as `0x${string}`, 26, network.usdc, network.gatewayWallet]);
+    const input = encodeFunctionData({ abi: [parseAbiItem("function submitBatch(bytes calldataBytes, bytes signature)")],
+      functionName: "submitBatch", args: [calldataBytes, `0x${"aa".repeat(65)}`] });
+    let saved: Record<string, any> | undefined;
+    const gatewayFetch: typeof fetch = async (url) => {
+      if (!saved) return new Response(JSON.stringify({ transfers: [] }));
+      const nonce = new URL(String(url)).searchParams.get("nonce");
+      const stage = ["preparation", "retrieval"].find((name) => saved?.[name].quote.nonce === nonce);
+      assert.ok(stage);
+      return new Response(JSON.stringify({ transfers: [{
+        id: saved[stage].receipt.transaction, nonce, fromAddress: payer, toAddress: merchant,
+        sendingNetwork: "eip155:5042", recipientNetwork: "eip155:5042", token: "USDC",
+        amount: saved[stage].quote.amount, status: "completed", txHash: transactionHash,
+      }] }));
+    };
+    const rpcFetch: typeof fetch = async (_url, init) => {
+      const body = JSON.parse(String(init?.body));
+      const result = body.method === "eth_chainId" ? "0x13b2"
+        : body.method === "eth_getTransactionByHash" ? {
+          hash: transactionHash, chainId: "0x13b2", from: batchSigner, to: network.gatewayWallet,
+          input, gasPrice: "0x3b9aca00",
+        } : body.method === "eth_getTransactionReceipt" ? {
+          transactionHash, blockNumber: "0x2a", status: "0x1", gasUsed: "0x5208", effectiveGasPrice: "0x3b9aca00",
+          logs: [{ address: network.gatewayWallet,
+            topics: [keccak256(stringToHex("BatchProcessed(bytes32,address,address)")), batchId,
+              topicAddress(batchSigner), topicAddress(network.usdc)], data: "0x" }],
+        } : body.method === "eth_call" ? "0x1" : undefined;
+      return new Response(JSON.stringify({ result }));
+    };
     const client = new TwoStageTaskClient({ endpoint, chainId: 5042, payer, merchant, stateDirectory: directory,
-      trustedJwks: f.trustedJwks, maxRetrievalMicrousd: 300n, fetch: f.mockFetch, now: () => now,
+      trustedJwks: f.trustedJwks, maxRetrievalMicrousd: 300n, fetch: f.mockFetch, now: () => currentTime,
       rpcUrl: "https://rpc.mainnet.arc.io",
-      gatewayFetch: async () => new Response(JSON.stringify({ transfers: [] }), { status: 200 }),
+      gatewayFetch, rpcFetch,
       approve: ({ stage }) => { approvals.push(stage); return true; },
       signTypedData: async () => `0x${"a".repeat(130)}` });
     await client.prepare(f.request);
     assert.equal((await client.status()).status, "ready");
     assert.deepEqual(await client.retrieve(), { status: "pending" });
     assert.deepEqual(approvals, ["preparation", "retrieval"]);
-    const saved = JSON.parse(await readFile(path.join(directory, "two-stage.json"), "utf8"));
-    assert.equal(saved.retrieval.receipt.transaction, "retrieval-transfer");
-    assert.equal(Buffer.from(saved.artifact, "base64").equals(f.artifact), true);
+    const pending = JSON.parse(await readFile(path.join(directory, "two-stage.json"), "utf8"));
+    assert.equal(pending.retrieval.receipt.transaction, "retrieval-transfer");
+    assert.equal(Buffer.from(pending.artifact, "base64").equals(f.artifact), true);
     assert.deepEqual(await client.retrieve(), { status: "pending" });
+    saved = pending;
+    currentTime = now + 301; // The preview has expired, but the purchased artifact and proofs remain recoverable.
+    const completed = await client.retrieve();
+    assert.equal(completed.status, "complete");
+    if (completed.status === "complete") assert.deepEqual(completed.bytes, f.artifact);
+    assert.equal((await client.retrieve()).status, "complete");
     assert.deepEqual(approvals, ["preparation", "retrieval"]);
+    assert.equal(f.paidRequests.length, 2);
   } finally { await rm(directory, { recursive: true, force: true }); }
 });

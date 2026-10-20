@@ -341,7 +341,10 @@ export class TwoStageTaskClient {
       const body = object(JSON.parse(call.bytes.toString()), "Task status");
       check(body.quoteId === state.job.quoteId, "Task status returned a different quote");
       if (state.preparation) this.receipt(call.response, state.preparation);
-      if (state.preparation?.receipt) await this.settle(state.preparation);
+      if (state.preparation?.receipt && state.preparation.settlement?.status !== "confirmed") {
+        await this.settle(state.preparation);
+        await this.save(state);
+      }
       if (body.status === "failed" || body.status === "expired") { await this.save(state); return { status: "failed" }; }
       if (body.status !== "ready") { await this.save(state); return { status: "pending" }; }
       if (body.purchased === true && state.preview && state.artifact) {
@@ -382,7 +385,14 @@ export class TwoStageTaskClient {
         state.artifact = paid.bytes.toString("base64");
         await this.save(state);
       }
-      if (state.retrieval?.receipt) { await this.settle(state.retrieval); await this.save(state); }
+      if (state.preparation.settlement?.status !== "confirmed") {
+        await this.settle(state.preparation);
+        await this.save(state);
+      }
+      if (state.retrieval?.receipt && state.retrieval.settlement?.status !== "confirmed") {
+        await this.settle(state.retrieval);
+        await this.save(state);
+      }
       if (this.#options.chainId === 5042) {
         if (state.preparation.settlement?.status !== "confirmed") return { status: "pending" };
         if (amount > 0n && state.retrieval?.settlement?.status !== "confirmed") return { status: "pending" };
