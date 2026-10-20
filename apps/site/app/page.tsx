@@ -6,7 +6,7 @@ import { ExternalLink } from "@/components/site-shell";
 import styles from "./home.module.css";
 
 const paths = [
-  { have: "An agent or decision engine", use: "Aomi × Circle Execution Kit", action: "Connect the Task API client", status: "Testnet proven", href: "/execution-kit", tone: "orange" },
+  { have: "An agent or decision engine", use: "Aomi × Circle Execution Kit", action: "Review the staging Task client", status: "Mainnet payment verified", href: "/execution-kit", tone: "orange" },
   { have: "Product APIs, but no agent", use: "Arc Agent-in-a-Box", action: "Deploy the invoice starter", status: "Live", href: "/agent-in-a-box", tone: "blue" },
 ];
 
@@ -41,12 +41,12 @@ export default function Home() {
 
       <section className="runbook-section" id="execution">
         <div className="container section-grid">
-          <header className={`section-index ${styles.sectionTitle}`}><span>02</span><div><p className="eyebrow">Execution Kit · Arc Testnet proven</p><h2>Bring your agent. Buy a verified execution artifact on Arc.</h2><HowItWorks diagram="execution" /></div></header>
+          <header className={`section-index ${styles.sectionTitle}`}><span>02</span><div><p className="eyebrow">Execution Kit · Arc Mainnet payment verified on staging</p><h2>Bring your agent. Buy a frozen Task result in two steps.</h2><HowItWorks diagram="execution" /></div></header>
           <div className="instruction-list">
-            <div className="instruction"><b>01</b><div><strong>Sign the exact Task request</strong><p>Your wallet authorizes one canonical request—without an Aomi login, session, API key, or bearer.</p></div><span>Input: agent decision</span></div>
-            <div className="instruction"><b>02</b><div><strong>Buy the simulated artifact</strong><p>Aomi returns a request-bound 402 quote; a separate Gateway signature purchases the immutable result.</p></div><span>Recoverable purchase</span></div>
-            <div className="instruction"><b>03</b><div><strong>Compare before signing</strong><p>Your application verifies the exact ordered contract calls before Circle signs execution.</p></div><span>Fail closed</span></div>
-            <div className="instruction"><b>04</b><div><strong>Confirm the Arc receipt</strong><p>Your app marks work complete only after independent receipt and contract-event verification.</p></div><Link href="/execution-kit">Open full brief →</Link></div>
+            <div className="instruction"><b>01</b><div><strong>Bind the Task request</strong><p>Submit the intent, payer, Arc chain, and constraints. Check the preparation quote against the exact request.</p></div><span>Input: agent decision</span></div>
+            <div className="instruction"><b>02</b><div><strong>Buy preparation</strong><p>Review and sign the 0.01 USDC Gateway purchase. Save its proof so retries cannot create a new payment.</p></div><span>Payment 1</span></div>
+            <div className="instruction"><b>03</b><div><strong>Inspect the preview</strong><p>Poll the private job and verify the attested preview, frozen result hash, and retrieval fee.</p></div><span>Free polling</span></div>
+            <div className="instruction"><b>04</b><div><strong>Buy and verify the result</strong><p>Review the second purchase and match the bytes and payment records before considering any business transaction.</p></div><Link href="/execution-kit">Open full brief →</Link></div>
           </div>
         </div>
       </section>

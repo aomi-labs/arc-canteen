@@ -382,7 +382,7 @@ test("independently verifies the exact Arc Mainnet Gateway batch and Circle nonc
     parseAbiParameters("(address depositor, int256 value)[] deltas, bytes32 batchId, uint32 domain, address tokenAddress, address gatewayWalletAddress"),
     [[{ depositor: wallet as `0x${string}`, value: -1_000_000n }, { depositor: merchant, value: 1_000_000n }], batchId as `0x${string}`, 26, network.usdc, network.gatewayWallet],
   );
-  const input = encodeFunctionData({
+  let input = encodeFunctionData({
     abi: [parseAbiItem("function submitBatch(bytes calldataBytes, bytes signature)")],
     functionName: "submitBatch",
     args: [calldataBytes, signature as `0x${string}`],
@@ -419,6 +419,31 @@ test("independently verifies the exact Arc Mainnet Gateway batch and Circle nonc
     transactionSender: batchSigner,
     blockNumber: "42", gasCostWei: (21_000n * 1_000_000_000n).toString(), batchId,
   });
+  const exactInput = input;
+
+  // Gateway nets separate x402 transfers between the same payer and merchant
+  // into a single batch delta. The default exact verifier stays strict; the
+  // Task client opts into a lower-bound batch corroboration for this case.
+  const coalescedBytes = encodeAbiParameters(
+    parseAbiParameters("(address depositor, int256 value)[] deltas, bytes32 batchId, uint32 domain, address tokenAddress, address gatewayWalletAddress"),
+    [[{ depositor: wallet as `0x${string}`, value: -1_000_300n }, { depositor: merchant, value: 1_000_300n }], batchId as `0x${string}`, 26, network.usdc, network.gatewayWallet],
+  );
+  input = encodeFunctionData({
+    abi: [parseAbiItem("function submitBatch(bytes calldataBytes, bytes signature)")],
+    functionName: "submitBatch", args: [coalescedBytes, signature as `0x${string}`],
+  });
+  await assert.rejects(verifyArcGatewaySettlement({
+    chainId: ARC_MAINNET_CHAIN_ID, rpcUrl: "https://rpc.example", nonce,
+    transferId: "circle-transfer-1", payer: wallet, merchant, amountMicrousd: "1000000",
+  }, { gatewayFetch, rpcFetch }), /batch deltas do not cover/);
+  const aggregate = await verifyArcGatewaySettlement({
+    chainId: ARC_MAINNET_CHAIN_ID, rpcUrl: "https://rpc.example", nonce,
+    transferId: "circle-transfer-1", payer: wallet, merchant, amountMicrousd: "1000000",
+    allowAggregatedBatch: true,
+  }, { gatewayFetch, rpcFetch });
+  assert.equal(aggregate.status, "confirmed");
+  if (aggregate.status === "confirmed") assert.equal(aggregate.amountVerification, "batch_lower_bound");
+  input = exactInput;
 
   receiptLogs = [...receiptLogs, {
     address: network.gatewayWallet,

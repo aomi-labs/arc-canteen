@@ -16,16 +16,16 @@ const sequenceActors = [
 ] as const;
 
 const sequenceMessages = [
-  [0, 1, "Sign exact Task request", false],
-  [0, 2, "Request + EIP-712 authorization", false],
-  [2, 3, "Simulate exact ordered calls", false],
-  [2, 0, "Attested 402 quote", true],
-  [0, 1, "Sign Gateway payment", false],
-  [2, 4, "Submit separate payment", false],
-  [2, 0, "Immutable artifact", true],
-  [0, 1, "Sign exact execution", false],
-  [1, 5, "Submit verified calls", false],
-  [5, 6, "Receipt + contract events", true],
+  [0, 2, "Intent + Arc constraints", false],
+  [2, 0, "Preparation 402 · 0.01 USDC", true],
+  [0, 1, "Review + sign preparation", false],
+  [2, 4, "Submit preparation proof", false],
+  [2, 3, "Build + simulate", false],
+  [2, 0, "Private job + attested preview", true],
+  [0, 1, "Review + sign retrieval", false],
+  [2, 4, "Submit retrieval proof", false],
+  [2, 0, "Frozen result + receipts", true],
+  [5, 6, "Confirmed Arc batch", true],
 ] as const;
 
 export function HowItWorks({ diagram }: { diagram: Diagram }) {
@@ -44,7 +44,7 @@ export function HowItWorks({ diagram }: { diagram: Diagram }) {
       >
         <div className={styles.window}>
           <header className={styles.header}>
-            <div><p>{execution ? "Execution Kit · sequence" : "Agent-in-a-Box · architecture"}</p><h3>{execution ? "From agent intent to verified Arc receipt" : "Your product supplies the tools. Aomi supplies the agent runtime."}</h3></div>
+            <div><p>{execution ? "Execution Kit · sequence" : "Agent-in-a-Box · architecture"}</p><h3>{execution ? "From agent intent to settled Task result" : "Your product supplies the tools. Aomi supplies the agent runtime."}</h3></div>
             <button type="button" onClick={() => dialog.current?.close()} aria-label="Close diagram">×</button>
           </header>
           {execution ? <ExecutionSequence /> : <AgentArchitecture />}
@@ -65,7 +65,7 @@ export function ExecutionSequence() {
           aria-labelledby="execution-sequence-title execution-sequence-description"
         >
           <title id="execution-sequence-title">Execution Kit sequence diagram</title>
-          <desc id="execution-sequence-description">Your agent obtains separate Circle Wallet signatures for Task authorization, Gateway payment, and final Arc execution. Aomi simulates exact calls and returns an immutable artifact.</desc>
+          <desc id="execution-sequence-description">Your agent submits a bounded Task, signs separate Circle Gateway payments for preparation and retrieval, and verifies the attested result and Arc batch. Final execution is a separate decision.</desc>
           <defs>
             <marker id="sequence-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
               <path d="M 0 0 L 10 5 L 0 10 z" />
@@ -92,7 +92,7 @@ export function ExecutionSequence() {
           })}
         </svg>
       </div>
-      <p className={styles.boundary}><strong>Control boundary:</strong> signing the Task grants no spending or execution authority. Aomi simulates the inner calls; Circle Wallet separately signs payment and execution. Your app marks completion only after the Arc receipt and expected events independently verify.</p>
+      <p className={styles.boundary}><strong>Control boundary:</strong> each service payment needs its own review and signature. Aomi returns a simulated, frozen result; it cannot sign or broadcast the business transaction. Your app reviews any execution separately.</p>
     </div>
   );
 }
