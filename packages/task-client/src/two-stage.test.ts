@@ -166,12 +166,12 @@ test("Mainnet may buy retrieval while the preparation batch is pending, but with
       signTypedData: async () => `0x${"a".repeat(130)}` });
     await client.prepare(f.request);
     assert.equal((await client.status()).status, "ready");
-    await assert.rejects(client.retrieve(), /Preparation settlement is not independently confirmed/);
+    assert.deepEqual(await client.retrieve(), { status: "pending" });
     assert.deepEqual(approvals, ["preparation", "retrieval"]);
     const saved = JSON.parse(await readFile(path.join(directory, "two-stage.json"), "utf8"));
     assert.equal(saved.retrieval.receipt.transaction, "retrieval-transfer");
     assert.equal(Buffer.from(saved.artifact, "base64").equals(f.artifact), true);
-    await assert.rejects(client.retrieve(), /Preparation settlement is not independently confirmed/);
+    assert.deepEqual(await client.retrieve(), { status: "pending" });
     assert.deepEqual(approvals, ["preparation", "retrieval"]);
   } finally { await rm(directory, { recursive: true, force: true }); }
 });

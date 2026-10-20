@@ -1251,9 +1251,8 @@ var TwoStageTaskClient = class {
         await this.save(state);
       }
       if (this.#options.chainId === 5042) {
-        check(state.preparation.settlement?.status === "confirmed", "Preparation settlement is not independently confirmed; resume this journal");
-        if (amount > 0n)
-          check(state.retrieval?.settlement?.status === "confirmed", "Retrieval settlement is not independently confirmed; resume this journal");
+        if (state.preparation.settlement?.status !== "confirmed") return { status: "pending" };
+        if (amount > 0n && state.retrieval?.settlement?.status !== "confirmed") return { status: "pending" };
       }
       const bytes = Buffer.from(state.artifact, "base64");
       check(sha256(bytes) === preview.payloadHash, "Stored Task bytes differ from attested hash");
