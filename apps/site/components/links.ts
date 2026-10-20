@@ -7,7 +7,7 @@ export const links = {
   tameion: "https://tameion.thecanteenapp.com",
   arcStudioFuzz: "https://arc-studio-fuzz.vercel.app",
   arcStudioFuzzSource: "https://github.com/aomi-labs/arc-studio-fuzz",
-  taskClient: "https://github.com/aomi-labs/arc-canteen/pull/51",
+  taskClient: "https://github.com/aomi-labs/arc-canteen/blob/main/packages/task-client/src/two-stage.ts",
   invoiceAgentWidget: "https://github.com/aomi-labs/arc-canteen/blob/main/apps/site/components/invoice-agent-widget.tsx",
   invoiceAgent: "https://github.com/aomi-labs/arc-canteen/tree/main/templates/invoice-agent",
 };
