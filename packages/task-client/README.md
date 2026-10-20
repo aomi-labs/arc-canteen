@@ -1,6 +1,63 @@
 # Aomi × Circle Execution Kit
 
-This package is the Node-first client for an existing agent or decision engine. It keeps three wallet authorities separate:
+## Current two-stage staging API
+
+The public staging Task API now charges **0.01 USDC for preparation** and, after the job is ready, **3% of simulated outgoing USDC for the frozen result**. Each stage has its own x402 challenge, wallet review, Gateway signature, receipt, and recovery record. A zero-outflow result is free after preparation. The old `TaskClient` and `ArcExecutionKit` below use the retired TaskAuthorization and single-purchase contract and **must not be used against this staging API**. The separate `TwoStageTaskClient` handles the current payment contract; execution remains a separate wallet decision.
+
+```ts
+import { TwoStageTaskClient } from "arc-canteen/task-client/two-stage";
+import { fetchTrustedTaskJwks, parseArcTransferArtifact } from "arc-canteen/task-client";
+import { CircleArcWallet } from "arc-canteen/circle-arc-wallet";
+
+const endpoint = "https://api-staging.aomi.dev/v1/task/build";
+const wallet = new CircleArcWallet({ walletAddress: process.env.CIRCLE_WALLET_ADDRESS! });
+const request = {
+  intent: "Simulate the approved invoice transfer; do not execute it",
+  chainId: 5042 as const,
+  sender: wallet.walletAddress,
+  payer: wallet.walletAddress,
+  constraints: {
+    maxOutgoingUsdcWei: "1000000000000000000", // 1 USDC maximum
+    maxGasUnits: 100000,
+    allowedTargets: ["0x1111111111111111111111111111111111111111"],
+    minimumReceived: [],
+  },
+};
+const client = new TwoStageTaskClient({
+  endpoint,
+  chainId: 5042,
+  payer: wallet.walletAddress,
+  merchant: "YOUR_INDEPENDENTLY_VERIFIED_AOMI_SELLER_ADDRESS",
+  stateDirectory: "/absolute/private/path/invoice-1042-two-stage",
+  trustedJwks: await fetchTrustedTaskJwks(endpoint),
+  maxRetrievalMicrousd: 30_000n, // 3% of the explicit 1 USDC bound
+  rpcUrl: "https://rpc.mainnet.arc.io",
+  approve: async (review) => showEachServicePaymentReview(review),
+  signTypedData: (data) => wallet.signTypedData(data, showExactCircleSignatureReview),
+});
+
+await client.prepare(request); // Retry with the same directory if the response is uncertain.
+let progress = await client.status(); // Free. Poll until ready or failed.
+while (progress.status === "pending") {
+  await new Promise((resolve) => setTimeout(resolve, 2_000));
+  progress = await client.status();
+}
+if (progress.status !== "ready") throw new Error("Task preparation failed");
+let result = await client.retrieve(); // A second review and payment when outflow is nonzero.
+while (result.status === "pending") {
+  await new Promise((resolve) => setTimeout(resolve, 2_000));
+  result = await client.retrieve();
+}
+const plan = parseArcTransferArtifact(result.bytes, request, result.preview, "1");
+// Review and sign the exact business transaction separately. This client does
+// not broadcast it or delegate wallet authority to Aomi.
+```
+
+The client refuses a changed merchant, chain, endpoint, request, or fee cap on recovery. Keep its private POSIX journal and lock files; never delete them to “retry” an uncertain payment. Arc Mainnet requires independent Circle transfer and Arc transaction confirmation before result delivery. This module has local contract tests and a live unpaid staging challenge check; a venue-routed paid client run remains to be verified. The existing `ArcExecutionKit` execution integration has not yet been migrated to this two-stage client.
+
+## Legacy execution kit reference (incompatible with current staging)
+
+The following material documents the previous API contract and is retained for migration review. It is not a runnable example for the current two-stage staging API. This package was the Node-first client for an existing agent or decision engine. It kept three wallet authorities separate:
 
 1. authorize one exact Task request;
 2. purchase the immutable Aomi Task artifact;

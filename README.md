@@ -9,6 +9,8 @@ This monorepo gives Tameion hackathon builders two focused ways to add AI to an 
 
 The public site in `apps/site` is a launcher for these products. It intentionally links to the canonical [Aomi Build](https://aomi.dev/docs/build) and [Agent API](https://aomi.dev/docs/integrate/agent) documentation instead of duplicating it.
 
+The [Task client](packages/task-client/README.md) includes a two-stage Arc Mainnet staging payment client. The older `ArcExecutionKit` examples below it target the retired TaskAuthorization and one-purchase API; their execution flow is not yet migrated or verified against current staging.
+
 ## Repository map
 
 - `apps/site` — product-first Tameion landing site.
