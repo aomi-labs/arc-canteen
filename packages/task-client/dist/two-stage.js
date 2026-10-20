@@ -1222,7 +1222,6 @@ var TwoStageTaskClient = class {
       const state = await this.load();
       check(state.job && state.preview && state.preparation, "Poll for an attested ready preview first");
       check(state.preparation.receipt, "Preparation has no accepted payment receipt; poll the same job");
-      if (this.#options.chainId === 5042) check(state.preparation.settlement?.status === "confirmed", "Preparation settlement is not independently confirmed");
       const preview = state.preview;
       const amount = decimal2(preview.pricing.fee_microusd);
       if (!state.artifact && amount === 0n) this.verifyPreview(preview, state);
@@ -1247,8 +1246,11 @@ var TwoStageTaskClient = class {
         await this.settle(state.retrieval);
         await this.save(state);
       }
-      if (this.#options.chainId === 5042 && amount > 0n)
-        check(state.retrieval?.settlement?.status === "confirmed", "Retrieval settlement is not independently confirmed; resume this journal");
+      if (this.#options.chainId === 5042) {
+        check(state.preparation.settlement?.status === "confirmed", "Preparation settlement is not independently confirmed; resume this journal");
+        if (amount > 0n)
+          check(state.retrieval?.settlement?.status === "confirmed", "Retrieval settlement is not independently confirmed; resume this journal");
+      }
       const bytes = Buffer.from(state.artifact, "base64");
       check(sha256(bytes) === preview.payloadHash, "Stored Task bytes differ from attested hash");
       return { status: "complete", bytes, preview, preparationReceipt: state.preparation.receipt, retrievalReceipt: state.retrieval?.receipt };

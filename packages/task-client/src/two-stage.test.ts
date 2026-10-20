@@ -18,19 +18,19 @@ const now = 1_800_000_000;
 const digest = (value: string | Buffer) => createHash("sha256").update(value).digest("hex");
 const b64 = (value: unknown) => Buffer.from(JSON.stringify(value)).toString("base64");
 
-function fixture(retrievalAmount = "300", alter?: "preparation_amount" | "preview_hash") {
-  const request = { intent: "Simulate a bounded Arc transfer", chainId, sender: payer, payer,
+function fixture(retrievalAmount = "300", alter?: "preparation_amount" | "preview_hash", networkChainId: 5042 | 5042002 = chainId) {
+  const request = { intent: "Simulate a bounded Arc transfer", chainId: networkChainId, sender: payer, payer,
     constraints: { maxOutgoingUsdcWei: "1000000000000000000", maxGasUnits: 100000, allowedTargets: [merchant], minimumReceived: [] } };
   const canonical = canonicalTaskRequest(request);
   const requestHash = digest(canonicalize(canonical)!);
   const artifact = Buffer.from(JSON.stringify({ summary: { outgoingUsdcWei: "1000000000000000000" }, build: { status: "simulated" } }));
   const payloadHash = digest(artifact);
-  const network = arcNetwork(chainId);
+  const network = arcNetwork(networkChainId);
   const requirement = (stage: "preparation" | "retrieval", amount: string, hash: string) => b64({
     x402Version: 2,
     resource: { url: stage === "preparation" ? endpoint : `https://api-staging.aomi.dev/v1/task/${quoteId}/result`, mimeType: "application/json" },
     extensions: { aomiTask: { quoteId: stage === "preparation" ? "preparation" : quoteId, payloadHash: hash } },
-    accepts: [{ scheme: "exact", network: `eip155:${chainId}`, asset: network.usdc, payTo: merchant,
+    accepts: [{ scheme: "exact", network: `eip155:${networkChainId}`, asset: network.usdc, payTo: merchant,
       amount, maxTimeoutSeconds: 300,
       extra: { name: "GatewayWalletBatched", version: "1", verifyingContract: network.gatewayWallet, minValiditySeconds: 604800 } }],
   });
@@ -42,15 +42,15 @@ function fixture(retrievalAmount = "300", alter?: "preparation_amount" | "previe
   const summary = { source: { chainId }, outgoingUsdcWei: "1000000000000000000" };
   const pricing = { fee_microusd: retrievalAmount, preparation_fee_microusd: "10000" };
   const header = Buffer.from(JSON.stringify({ alg: "EdDSA", kid: "test-key" })).toString("base64url");
-  const claims = { aud: "aomi-task-artifact", sub: `wallet:eip155:${chainId}:${payer}`, iat: now, exp: now + 300,
-    quoteId, requestHash, request: canonical, summary, pricing, payloadHash, chainId, payer,
+  const claims = { aud: "aomi-task-artifact", sub: `wallet:eip155:${networkChainId}:${payer}`, iat: now, exp: now + 300,
+    quoteId, requestHash, request: canonical, summary, pricing, payloadHash, chainId: networkChainId, payer,
     amountMicrousd: retrievalAmount, paymentRequiredHash: digest(retrievalHeader) };
   const payload = Buffer.from(JSON.stringify(claims)).toString("base64url");
   const jwt = `${header}.${payload}.${sign(null, Buffer.from(`${header}.${payload}`), privateKey).toString("base64url")}`;
   const preview = { status: "ready", quoteId, requestHash, request: canonical, summary, pricing,
     payloadHash: alter === "preview_hash" ? "0".repeat(64) : payloadHash, expiresAt: now + 300,
     paymentRequired: retrievalHeader, attestation: jwt };
-  const receipt = (stage: string) => b64({ success: true, network: `eip155:${chainId}`, payer, transaction: `${stage}-transfer` });
+  const receipt = (stage: string) => b64({ success: true, network: `eip155:${networkChainId}`, payer, transaction: `${stage}-transfer` });
   const paidRequests: { url: string; proof: string; body: string }[] = [];
   const mockFetch: typeof fetch = async (input, init) => {
     const url = String(input);
@@ -150,5 +150,28 @@ test("an ambiguous preparation response reuses the persisted signature", async (
     assert.deepEqual(await new TwoStageTaskClient(options).prepare(f.request), { status: "prepared", quoteId });
     assert.equal(signatures, 1);
     assert.equal(f.paidRequests[0].proof, saved.preparation.proof);
+  } finally { await rm(directory, { recursive: true, force: true }); }
+});
+
+test("Mainnet may buy retrieval while the preparation batch is pending, but withholds completion", async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "aomi-two-stage-"));
+  try {
+    const f = fixture("300", undefined, 5042);
+    const approvals: string[] = [];
+    const client = new TwoStageTaskClient({ endpoint, chainId: 5042, payer, merchant, stateDirectory: directory,
+      trustedJwks: f.trustedJwks, maxRetrievalMicrousd: 300n, fetch: f.mockFetch, now: () => now,
+      rpcUrl: "https://rpc.mainnet.arc.io",
+      gatewayFetch: async () => new Response(JSON.stringify({ transfers: [] }), { status: 200 }),
+      approve: ({ stage }) => { approvals.push(stage); return true; },
+      signTypedData: async () => `0x${"a".repeat(130)}` });
+    await client.prepare(f.request);
+    assert.equal((await client.status()).status, "ready");
+    await assert.rejects(client.retrieve(), /Preparation settlement is not independently confirmed/);
+    assert.deepEqual(approvals, ["preparation", "retrieval"]);
+    const saved = JSON.parse(await readFile(path.join(directory, "two-stage.json"), "utf8"));
+    assert.equal(saved.retrieval.receipt.transaction, "retrieval-transfer");
+    assert.equal(Buffer.from(saved.artifact, "base64").equals(f.artifact), true);
+    await assert.rejects(client.retrieve(), /Preparation settlement is not independently confirmed/);
+    assert.deepEqual(approvals, ["preparation", "retrieval"]);
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
