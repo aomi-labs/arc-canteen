@@ -471,8 +471,10 @@ async function verifyArcGatewaySettlement(input, options = {}) {
   const payerDeltas = deltas.filter((delta) => address(delta.depositor) === payer);
   const merchantDeltas = deltas.filter((delta) => address(delta.depositor) === merchant);
   const paymentAmount = BigInt(input.amountMicrousd);
-  if (payerDeltas.length !== 1 || payerDeltas[0].value !== -paymentAmount || merchantDeltas.length !== 1 || merchantDeltas[0].value !== paymentAmount) {
-    throw new Error("Circle Gateway batch does not debit the payer and credit the exact merchant amount once");
+  const exactAmount = payerDeltas.length === 1 && payerDeltas[0].value === -paymentAmount && merchantDeltas.length === 1 && merchantDeltas[0].value === paymentAmount;
+  const aggregateCoversAmount = input.allowAggregatedBatch && payerDeltas.length === 1 && payerDeltas[0].value <= -paymentAmount && merchantDeltas.length === 1 && merchantDeltas[0].value >= paymentAmount;
+  if (!exactAmount && !aggregateCoversAmount) {
+    throw new Error("Circle Gateway batch deltas do not cover the verified transfer amount");
   }
   const insufficientBalanceTopic = keccak256(stringToHex("InsufficientBalance(address,address,uint256,uint256,uint256)"));
   const insufficientPayerDebit = receipt.logs?.some((log) => address(log.address) === address(network.gatewayWallet) && log.topics?.length === 3 && String(log.topics[0]).toLowerCase() === insufficientBalanceTopic.toLowerCase() && address(`0x${String(log.topics[1]).slice(-40)}`) === address(network.usdc) && address(`0x${String(log.topics[2]).slice(-40)}`) === payer);
@@ -503,7 +505,8 @@ async function verifyArcGatewaySettlement(input, options = {}) {
     transactionSender,
     blockNumber: BigInt(receipt.blockNumber).toString(),
     gasCostWei: (BigInt(receipt.gasUsed) * gasPrice).toString(),
-    batchId
+    batchId,
+    ...!exactAmount ? { amountVerification: "batch_lower_bound" } : {}
   };
 }
 async function verifyArcCallReceipt(transactionHash, rpcUrl, chainId, fetchImpl = fetch) {

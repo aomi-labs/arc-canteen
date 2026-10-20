@@ -241,7 +241,8 @@ export class TwoStageTaskClient {
     if (this.#options.chainId !== 5042 || !payment.receipt) return;
     const settlement = await verifyArcGatewaySettlement({ chainId: 5042, rpcUrl: this.#options.rpcUrl!,
       nonce: payment.quote.nonce, transferId: payment.receipt.transaction, payer: this.#options.payer,
-      merchant: this.#options.merchant, amountMicrousd: payment.quote.amount },
+      merchant: this.#options.merchant, amountMicrousd: payment.quote.amount,
+      allowAggregatedBatch: true },
     { gatewayFetch: this.#options.gatewayFetch, rpcFetch: this.#options.rpcFetch });
     payment.settlement = settlement;
   }

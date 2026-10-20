@@ -53,7 +53,7 @@ const plan = parseArcTransferArtifact(result.bytes, request, result.preview, "1"
 // not broadcast it or delegate wallet authority to Aomi.
 ```
 
-The client refuses a changed merchant, chain, endpoint, request, or fee cap on recovery. Keep its private POSIX journal and lock files; never delete them to “retry” an uncertain payment. Arc Mainnet requires independent Circle transfer and Arc transaction confirmation before result delivery. This module has local contract tests and a live unpaid staging challenge check; a venue-routed paid client run remains to be verified. The existing `ArcExecutionKit` execution integration has not yet been migrated to this two-stage client.
+The client refuses a changed merchant, chain, endpoint, request, or fee cap on recovery. Keep its private POSIX journal and lock files; never delete them to “retry” an uncertain payment. Arc Mainnet requires Circle's nonce-bound transfer record and an independently successful Arc Gateway batch before result delivery. Gateway may net multiple transfers into one payer or merchant delta, so the chain check confirms a debit and credit covering each Circle-recorded amount; the individual allocation comes from Circle's transfer record. A direct paid staging client run has verified both purchases and recovery, but a venue-routed purchase remains unverified. The existing `ArcExecutionKit` execution integration has not yet been migrated to this two-stage client.
 
 ## Legacy execution kit reference (incompatible with current staging)
 

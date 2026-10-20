@@ -120,6 +120,7 @@ export type CircleGatewaySettlement =
       blockNumber: string;
       gasCostWei: string;
       batchId: `0x${string}`;
+      amountVerification?: "batch_lower_bound";
     };
 
 export interface CircleContractCallPlan {
@@ -597,6 +598,8 @@ export async function verifyArcGatewaySettlement(
     payer: string;
     merchant: string;
     amountMicrousd: string;
+    /** Circle binds this transfer to its nonce and batch; Arc may net several transfers into one depositor delta. */
+    allowAggregatedBatch?: boolean;
   },
   options: { gatewayFetch?: typeof fetch; rpcFetch?: typeof fetch } = {},
 ): Promise<CircleGatewaySettlement> {
@@ -684,11 +687,13 @@ export async function verifyArcGatewaySettlement(
   const payerDeltas = deltas.filter((delta) => address(delta.depositor) === payer);
   const merchantDeltas = deltas.filter((delta) => address(delta.depositor) === merchant);
   const paymentAmount = BigInt(input.amountMicrousd);
-  if (
-    payerDeltas.length !== 1 || payerDeltas[0].value !== -paymentAmount ||
-    merchantDeltas.length !== 1 || merchantDeltas[0].value !== paymentAmount
-  ) {
-    throw new Error("Circle Gateway batch does not debit the payer and credit the exact merchant amount once");
+  const exactAmount = payerDeltas.length === 1 && payerDeltas[0].value === -paymentAmount &&
+    merchantDeltas.length === 1 && merchantDeltas[0].value === paymentAmount;
+  const aggregateCoversAmount = input.allowAggregatedBatch && payerDeltas.length === 1 &&
+    payerDeltas[0].value <= -paymentAmount && merchantDeltas.length === 1 &&
+    merchantDeltas[0].value >= paymentAmount;
+  if (!exactAmount && !aggregateCoversAmount) {
+    throw new Error("Circle Gateway batch deltas do not cover the verified transfer amount");
   }
   const insufficientBalanceTopic = keccak256(stringToHex("InsufficientBalance(address,address,uint256,uint256,uint256)"));
   const insufficientPayerDebit = (receipt.logs as Record<string, any>[] | undefined)?.some((log) =>
@@ -726,6 +731,7 @@ export async function verifyArcGatewaySettlement(
     blockNumber: BigInt(receipt.blockNumber).toString(),
     gasCostWei: (BigInt(receipt.gasUsed) * gasPrice).toString(),
     batchId,
+    ...(!exactAmount ? { amountVerification: "batch_lower_bound" as const } : {}),
   };
 }
 
